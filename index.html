@@ -3,12 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Puzzle Heroes RPG</title>
+    <title>Puzzle Heroes RPG + Firebase</title>
     
-    <!-- TELEGRAM WEB APP SCRIPT (WAJIB) -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
-    <!-- LIBRARIES -->
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -20,7 +18,7 @@
         
         body { 
             font-family: 'Fredoka One', 'Verdana', sans-serif; 
-            background-color: var(--tg-theme-bg-color, #0f172a); /* Adaptif ke tema Telegram */
+            background-color: var(--tg-theme-bg-color, #0f172a); 
             color: var(--tg-theme-text-color, #ffffff);
             overflow: hidden; 
             touch-action: none; 
@@ -76,7 +74,6 @@
             transform: translateY(2px) scale(0.95);
         }
 
-        /* Telegram Stars Specific UI */
         .star-icon {
             display: inline-block;
             width: 20px;
@@ -88,6 +85,61 @@
 
         img { -webkit-user-drag: none; user-select: none; pointer-events: none; }
     </style>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        // Konfigurasi dari User
+        const firebaseConfig = {
+            apiKey: "AIzaSyBXxNettfJao-Eb-Y_a1dNuZ8_DOiX_-fo",
+            authDomain: "puzzle-heroes-d5df2.firebaseapp.com",
+            projectId: "puzzle-heroes-d5df2",
+            storageBucket: "puzzle-heroes-d5df2.firebasestorage.app",
+            messagingSenderId: "63425481716",
+            appId: "1:63425481716:web:e496e835b3d071235cc7a1",
+            measurementId: "G-TCN0MV463X"
+        };
+
+        // Init Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // -- FUNGSI GLOBAL AGAR BISA DIPANGGIL DI REACT --
+
+        // Fungsi Load Data
+        window.loadCloudData = async (userId) => {
+            if (!userId) return null;
+            console.log("🔥 Firebase: Mencoba mengambil data untuk user:", userId);
+            try {
+                const docRef = doc(db, "players", userId.toString());
+                const docSnap = await getDoc(docRef);
+                if (docSnap.exists()) {
+                    console.log("✅ Firebase: Data ditemukan:", docSnap.data());
+                    return docSnap.data();
+                } else {
+                    console.log("⚠️ Firebase: Data tidak ada, user baru.");
+                    return null;
+                }
+            } catch (error) {
+                console.error("❌ Firebase Error (Load):", error);
+                return null;
+            }
+        };
+
+        // Fungsi Save Data
+        window.saveCloudData = async (userId, data) => {
+            if (!userId) return;
+            console.log("🔥 Firebase: Menyimpan data...", data);
+            try {
+                await setDoc(doc(db, "players", userId.toString()), data, { merge: true });
+                console.log("✅ Firebase: Data berhasil disimpan!");
+            } catch (error) {
+                console.error("❌ Firebase Error (Save):", error);
+            }
+        };
+    </script>
+
 </head>
 <body>
     <div id="root"></div>
@@ -146,45 +198,95 @@
 
         function GameApp() {
             const tg = window.Telegram.WebApp;
+            // ==========================================
+            // 2. IDENTITAS USER (Untuk Database)
+            // ==========================================
+            // Jika di Telegram, pakai ID User. Jika di Browser biasa, pakai ID Dummy.
+            const telegramUserId = tg.initDataUnsafe?.user?.id || "test_user_001_browser";
+            const telegramName = tg.initDataUnsafe?.user?.first_name || "Guest";
 
             // -- INITIAL SETUP --
             useEffect(() => {
-                // Memberitahu Telegram bahwa app sudah siap
                 tg.ready();
-                tg.expand(); // Layar Penuh
-                
-                // Menutup Shop jika tombol Back ditekan di Telegram
+                tg.expand(); 
                 tg.BackButton.onClick(() => {
                     setGameState('BATTLE');
                     tg.BackButton.hide();
                 });
             }, []);
 
-            // -- SAVE DATA HANDLER --
-            const loadData = () => {
-                const saved = localStorage.getItem('puzzleHeroesSave');
-                if (saved) return JSON.parse(saved);
-                return {
-                    level: 1,
-                    totalCoins: 100,
-                    bonusStats: { hp: 0, atk: 0 },
-                    inventory: { potion: 1, bomb: 0, shuffle: 1 }
-                };
+            // ==========================================
+            // 3. STATE MANAGEMENT (Diganti untuk Firebase)
+            // ==========================================
+            
+            // Nilai Default (User Baru)
+            const defaultStats = {
+                level: 1,
+                totalCoins: 100,
+                bonusStats: { hp: 0, atk: 0 },
+                inventory: { potion: 1, bomb: 0, shuffle: 1 }
             };
-
-            const saveData = (data) => {
-                localStorage.setItem('puzzleHeroesSave', JSON.stringify(data));
-            };
-
-            const [saveState, setSaveState] = useState(loadData());
 
             const [gameState, setGameState] = useState('START'); 
-            const [level, setLevel] = useState(saveState.level);
-            const [totalCoins, setTotalCoins] = useState(saveState.totalCoins); 
-            const [currentReward, setCurrentReward] = useState(0);
             
-            const [bonusStats, setBonusStats] = useState(saveState.bonusStats); 
-            const [inventory, setInventory] = useState(saveState.inventory);
+            // State Data Pemain
+            const [level, setLevel] = useState(defaultStats.level);
+            const [totalCoins, setTotalCoins] = useState(defaultStats.totalCoins); 
+            const [bonusStats, setBonusStats] = useState(defaultStats.bonusStats); 
+            const [inventory, setInventory] = useState(defaultStats.inventory);
+            
+            // State Loading Data Cloud
+            const [isCloudLoaded, setIsCloudLoaded] = useState(false);
+
+            // -- LOAD DATA DARI FIREBASE (Jalan sekali saat Start) --
+            useEffect(() => {
+                const initGameData = async () => {
+                    if (window.loadCloudData) {
+                        const cloudData = await window.loadCloudData(telegramUserId);
+                        
+                        if (cloudData) {
+                            // Jika ada data di server, timpa state lokal
+                            if(cloudData.level) setLevel(cloudData.level);
+                            if(cloudData.totalCoins) setTotalCoins(cloudData.totalCoins);
+                            if(cloudData.bonusStats) setBonusStats(cloudData.bonusStats);
+                            if(cloudData.inventory) setInventory(cloudData.inventory);
+                        }
+                    }
+                    // Tandai loading selesai, agar Autosave bisa aktif
+                    setIsCloudLoaded(true);
+                };
+                
+                initGameData();
+            }, []); // [] artinya hanya jalan sekali
+
+            // -- AUTO SAVE KE FIREBASE (Dengan Jeda/Debounce) --
+            useEffect(() => {
+                // Jangan simpan kalau data belum selesai dimuat (supaya tidak menimpa data server dengan level 1)
+                if (!isCloudLoaded) return;
+
+                const dataToSave = {
+                    level,
+                    totalCoins,
+                    bonusStats,
+                    inventory,
+                    lastUpdated: new Date().toISOString(),
+                    username: telegramName
+                };
+
+                // Gunakan timeout agar tidak spam request ke Firebase setiap detik
+                const saveTimeout = setTimeout(() => {
+                    if (window.saveCloudData) {
+                        window.saveCloudData(telegramUserId, dataToSave);
+                    }
+                }, 2000); // Simpan 2 detik setelah perubahan terakhir
+
+                return () => clearTimeout(saveTimeout);
+            }, [level, totalCoins, bonusStats, inventory, isCloudLoaded]);
+
+
+            // --- LOGIKA GAME LANJUTAN ---
+
+            const [currentReward, setCurrentReward] = useState(0);
             
             const calculateHeroStats = (lvl, bonuses) => {
                 const baseHp = Math.floor(100 * Math.pow(1.07, lvl - 1));
@@ -217,31 +319,6 @@
             const [screenFlash, setScreenFlash] = useState('');
             const [showIAP, setShowIAP] = useState(false); 
 
-            // --- AUTO SAVE EFFECT ---
-            useEffect(() => {
-                saveData({
-                    level,
-                    totalCoins,
-                    bonusStats,
-                    inventory
-                });
-            }, [level, totalCoins, bonusStats, inventory]);
-
-            useEffect(() => {
-                setBoard(createValidBoard());
-                setHero(calculateHeroStats(level, bonusStats));
-                setEnemy(generateEnemy(level));
-            }, []);
-
-            // Logic tombol Back Telegram
-            useEffect(() => {
-                if (gameState === 'SHOP' || showIAP) {
-                    tg.BackButton.show();
-                } else {
-                    tg.BackButton.hide();
-                }
-            }, [gameState, showIAP]);
-
             const generateEnemy = (lvl) => {
                 const isBoss = lvl % 5 === 0;
                 const idx = Math.min(Math.floor((lvl - 1) / 5), MONSTER_NAMES.length - 1);
@@ -253,6 +330,32 @@
                     isBoss
                 };
             };
+
+            // -- UPDATE HERO & ENEMY SAAT DATA CLOUD MASUK --
+            // Ini penting agar saat data cloud masuk (misal level 10), monster langsung berubah jadi monster level 10
+            useEffect(() => {
+                if (isCloudLoaded) {
+                    setHero(prev => {
+                        const newStats = calculateHeroStats(level, bonusStats);
+                        // Kita reset HP Full saat load ulang / level up
+                        return { ...newStats, hp: newStats.maxHp };
+                    });
+                    setEnemy(generateEnemy(level));
+                }
+            }, [isCloudLoaded, level, bonusStats]); // Jalan setiap kali level/stats berubah
+
+            useEffect(() => {
+                setBoard(createValidBoard());
+            }, []);
+
+            // Logic tombol Back Telegram
+            useEffect(() => {
+                if (gameState === 'SHOP' || showIAP) {
+                    tg.BackButton.show();
+                } else {
+                    tg.BackButton.hide();
+                }
+            }, [gameState, showIAP]);
 
             const calculateCoinReward = (lvl) => Math.floor(15 * Math.pow(1.085, lvl - 1));
             const getUpgradePrice = (type) => type === 'atk' ? Math.floor(hero.atk * 25) : (type === 'hp' ? Math.floor(hero.maxHp * 1.5) : 999999);
@@ -313,11 +416,8 @@
                  setTimeout(() => setFloatingText(prev => prev.filter(item => item.id !== id)), 2000); 
             };
 
-            // --- LOGIKA PEMBAYARAN TELEGRAM STARS ---
             const handleStarsPurchase = (coins, stars) => {
-                // 1. Cek apakah ini di dalam Telegram?
                 if (!tg.initDataUnsafe?.user) {
-                    alert("Fitur ini hanya berjalan di dalam Telegram Bot.");
                     // Fallback simulasi untuk testing di browser biasa
                     if(confirm(`[DEV MODE] Simulate buying ${coins} coins for ${stars} Stars?`)) {
                          setTotalCoins(prev => prev + coins);
@@ -325,21 +425,8 @@
                     return;
                 }
 
-                // 2. Tampilkan Konfirmasi (Native Telegram Popup)
                 tg.showConfirm(`Beli ${formatNumber(coins)} Koin seharga ${stars} Stars?`, (confirmed) => {
                     if (confirmed) {
-                        /* CATATAN PENTING:
-                           Untuk pembayaran Stars yang sebenarnya, Anda memerlukan BOT SERVER (Backend).
-                           Alurnya:
-                           1. Frontend kirim request ke Bot Server Anda.
-                           2. Bot Server pakai API 'createInvoiceLink' dengan currency 'XTR'.
-                           3. Bot Server balikin Link Invoice ke sini.
-                           4. tg.openInvoice(link_dari_server)
-                           
-                           Karena ini hanya file HTML (tanpa backend), kita simulasikan sukses.
-                        */
-                        
-                        // Simulasi Loading
                         tg.MainButton.showProgress();
                         setTimeout(() => {
                             tg.MainButton.hideProgress();
@@ -411,15 +498,14 @@
                     setTotalCoins(prev => prev - price);
                     if (item === 'atk') { 
                         setBonusStats(prev => ({ ...prev, atk: prev.atk + 2 })); 
-                        setHero(prev => ({...prev, atk: prev.atk + 2})); 
+                        // Hero akan otomatis terupdate via useEffect
                     }
                     else if (item === 'hp') { 
                         setBonusStats(prev => ({ ...prev, hp: prev.hp + 10 })); 
-                        setHero(prev => ({...prev, maxHp: prev.maxHp + 10, hp: prev.hp + 10})); 
+                        // Hero akan otomatis terupdate via useEffect
                     }
                     else setInventory(prev => ({...prev, [item]: prev[item] + 1}));
                     
-                    // Haptic Feedback Telegram
                     tg.HapticFeedback.impactOccurred('medium');
                 } else {
                     tg.HapticFeedback.notificationOccurred('error');
@@ -537,16 +623,13 @@
                 setTotalCoins(prev => prev + currentReward);
                 const nextLevel = level + 1;
                 setLevel(nextLevel);
-                // Hitung ulang stats hero penuh
-                setHero(calculateHeroStats(nextLevel, bonusStats)); 
-                setEnemy(generateEnemy(nextLevel));
+                // Hero akan terupdate otomatis via useEffect
                 setGameState('BATTLE'); setTurnBanner('START!'); setTimeout(()=>setTurnBanner(''), 1500); setTurn('player'); setIsProcessing(false);
             };
 
             const restartGame = () => {
                 setLevel(1);
-                setHero(calculateHeroStats(1, bonusStats));
-                setEnemy(generateEnemy(1));
+                // Hero akan terupdate otomatis via useEffect
                 setInventory({potion:1, bomb:0, shuffle:1}); 
                 setGameState('BATTLE');
             };
@@ -579,7 +662,7 @@
                         
                         {/* USER INFO TELEGRAM (JIKA ADA) */}
                         <div className="w-20 text-xs text-right text-white/50">
-                             {tg.initDataUnsafe?.user?.first_name ? `Hi, ${tg.initDataUnsafe.user.first_name}` : ''}
+                             {telegramName !== "Guest" ? `Hi, ${telegramName}` : ''}
                         </div>
                     </div>
 
@@ -873,4 +956,3 @@
     </script>
 </body>
 </html>
-
