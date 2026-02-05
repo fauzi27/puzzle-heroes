@@ -197,13 +197,28 @@
         // --- GAME LOGIC ---
 
         function GameApp() {
-            const tg = window.Telegram.WebApp;
-            // ==========================================
-            // 2. IDENTITAS USER (Untuk Database)
-            // ==========================================
-            // Jika di Telegram, pakai ID User. Jika di Browser biasa, pakai ID Dummy.
-            const telegramUserId = tg.initDataUnsafe?.user?.id || "test_user_001_browser";
-            const telegramName = tg.initDataUnsafe?.user?.first_name || "Guest";
+                        const tg = window.Telegram.WebApp;
+
+            // --- LOGIKA ID PEMAIN (TELEGRAM vs BROWSER) ---
+            
+            // Fungsi bikin ID Tamu jika main di browser
+            const getBrowserId = () => {
+                // Cek apakah browser ini sudah punya ID sebelumnya?
+                let savedId = localStorage.getItem('guest_player_id');
+                if (!savedId) {
+                    // Jika belum, buat ID acak (misal: guest_170999_882)
+                    savedId = 'guest_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+                    localStorage.setItem('guest_player_id', savedId);
+                }
+                return savedId;
+            };
+
+            // Tentukan ID: Prioritas Telegram > Jika tidak ada, pakai ID Browser
+            const telegramUserId = tg.initDataUnsafe?.user?.id || getBrowserId();
+            
+            // Tentukan Nama: Prioritas Telegram > Jika tidak ada, pakai "Guest"
+            const telegramName = tg.initDataUnsafe?.user?.first_name || "Guest Player";
+
 
             // -- INITIAL SETUP --
             useEffect(() => {
