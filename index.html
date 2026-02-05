@@ -87,10 +87,12 @@
     </style>
 
     <script type="module">
+        // Import Library (Database + Auth/Login)
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
-        // Konfigurasi dari User
+        // Konfigurasi Anda
         const firebaseConfig = {
             apiKey: "AIzaSyBXxNettfJao-Eb-Y_a1dNuZ8_DOiX_-fo",
             authDomain: "puzzle-heroes-d5df2.firebaseapp.com",
@@ -101,42 +103,64 @@
             measurementId: "G-TCN0MV463X"
         };
 
-        // Init Firebase
+        // Initialize Firebase
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
+        const auth = getAuth(app); // Init Auth
+        const provider = new GoogleAuthProvider(); // Init Google
 
-        // -- FUNGSI GLOBAL AGAR BISA DIPANGGIL DI REACT --
-
-        // Fungsi Load Data
-        window.loadCloudData = async (userId) => {
-            if (!userId) return null;
-            console.log("🔥 Firebase: Mencoba mengambil data untuk user:", userId);
+        // --- FUNGSI AUTHENTICATION (LOGIN/LOGOUT) ---
+        
+        window.loginGoogle = async () => {
             try {
-                const docRef = doc(db, "players", userId.toString());
-                const docSnap = await getDoc(docRef);
-                if (docSnap.exists()) {
-                    console.log("✅ Firebase: Data ditemukan:", docSnap.data());
-                    return docSnap.data();
-                } else {
-                    console.log("⚠️ Firebase: Data tidak ada, user baru.");
-                    return null;
-                }
+                const result = await signInWithPopup(auth, provider);
+                const user = result.user;
+                console.log("Login Sukses:", user.displayName);
+                return user;
             } catch (error) {
-                console.error("❌ Firebase Error (Load):", error);
+                console.error("Login Gagal:", error);
+                alert("Login Gagal: " + error.message);
                 return null;
             }
         };
 
-        // Fungsi Save Data
+        window.logoutGoogle = async () => {
+            try {
+                await signOut(auth);
+                console.log("Logout Sukses");
+                window.location.reload(); 
+            } catch (error) {
+                console.error("Logout Error:", error);
+            }
+        };
+
+        // Listener: Cek status login real-time
+        window.authListener = (callback) => {
+            onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    callback(user); 
+                } else {
+                    callback(null); 
+                }
+            });
+        };
+
+        // --- FUNGSI DATABASE (LOAD & SAVE) ---
+
+        window.loadCloudData = async (userId) => {
+            if (!userId) return null;
+            try {
+                const docRef = doc(db, "players", userId.toString());
+                const docSnap = await getDoc(docRef);
+                return docSnap.exists() ? docSnap.data() : null;
+            } catch (error) { return null; }
+        };
+
         window.saveCloudData = async (userId, data) => {
             if (!userId) return;
-            console.log("🔥 Firebase: Menyimpan data...", data);
-            try {
-                await setDoc(doc(db, "players", userId.toString()), data, { merge: true });
-                console.log("✅ Firebase: Data berhasil disimpan!");
-            } catch (error) {
-                console.error("❌ Firebase Error (Save):", error);
-            }
+            try { 
+                await setDoc(doc(db, "players", userId.toString()), data, { merge: true }); 
+            } catch (error) { console.error(error); }
         };
     </script>
 
