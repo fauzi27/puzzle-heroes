@@ -616,49 +616,74 @@
                 setGameState('BATTLE');
             };
 
-                        // --- MENU PROFIL (UI BARU) ---
+                                    // --- MENU PROFIL (HYBRID: AMAN DI CHROME & TELEGRAM) ---
             const handleProfile = () => {
-                // 1. Jika User Telegram
-                if (isTelegram) {
-                    tg.showAlert(`Akun Telegram: ${activeUserName}`);
-                    return;
+                // Cek: Apakah game jalan di dalam aplikasi Telegram?
+                const isRunningInTelegram = (tg.platform && tg.platform !== 'unknown');
+
+                // ============================================================
+                // JIKA DI DALAM TELEGRAM (Pakai Menu Keren tg.showPopup)
+                // ============================================================
+                if (isRunningInTelegram) {
+                    // 1. User Login Telegram
+                    if (isTelegram) {
+                         tg.showAlert(`Akun Telegram: ${activeUserName}`);
+                         return;
+                    }
+                    
+                    // 2. User Login Google (di dalam Telegram)
+                    if (user) {
+                        tg.showConfirm(`Login: ${user.displayName}\nEmail: ${user.email}\n\nLogout?`, (ok) => {
+                            if(ok) window.logoutGoogle();
+                        });
+                        return;
+                    }
+
+                    // 3. Guest (di dalam Telegram)
+                    tg.showPopup({
+                        title: 'GUEST PLAYER',
+                        message: 'Pilih opsi akun:',
+                        buttons: [
+                            {id: 'login', type: 'default', text: '🌐 Login Google'},
+                            {id: 'rename', type: 'default', text: '✏️ Ganti Nama'},
+                            {id: 'cancel', type: 'destructive', text: 'Tutup'}
+                        ]
+                    }, (btnId) => {
+                        if(btnId === 'login') window.loginGoogle();
+                        else if(btnId === 'rename') {
+                            setTimeout(() => {
+                                const newName = prompt("Nama Baru:", activeUserName);
+                                if(newName) { localStorage.setItem('guest_player_name', newName); window.location.reload(); }
+                            }, 300);
+                        }
+                    });
+                    return; 
                 }
 
-                // 2. Jika Sudah Login Google
+                // ============================================================
+                // JIKA DI BROWSER CHROME (Pakai Menu Biasa confirm/prompt)
+                // ============================================================
+                
+                // 1. User Login Google
                 if (user) {
-                    tg.showConfirm(
-                        `Login sebagai:\n${user.displayName}\n(${user.email})\n\nIngin Logout?`,
-                        (status) => {
-                            if (status) window.logoutGoogle();
-                        }
-                    );
-                    return;
+                    if(confirm(`Login sebagai: ${user.displayName}\nLogout?`)) window.logoutGoogle();
                 } 
-
-                // 3. Jika Masih Guest (Tampilkan Pilihan Tombol)
-                tg.showPopup({
-                    title: 'STATUS: GUEST PLAYER',
-                    message: 'Agar progresmu aman dan bisa pindah HP, disarankan untuk Login.',
-                    buttons: [
-                        {id: 'login', type: 'default', text: '🌐 Login Google (Aman)'},
-                        {id: 'rename', type: 'default', text: '✏️ Ganti Nama Guest'},
-                        {id: 'cancel', type: 'destructive', text: 'Batal'}
-                    ]
-                }, (buttonId) => {
-                    if (buttonId === 'login') {
+                // 2. Guest (Browser)
+                else {
+                    // Trik: OK untuk Login, Cancel untuk Ganti Nama
+                    if(confirm("PILIHAN AKUN:\n\n[OK] -> Login Google (Aman)\n[BATAL] -> Ganti Nama Guest")) {
                         window.loginGoogle();
-                    } else if (buttonId === 'rename') {
-                        // Kasih jeda sedikit biar popup nutup dulu
-                        setTimeout(() => {
-                            const newName = prompt("Masukkan Nama Baru:", activeUserName);
-                            if(newName && newName.trim().length > 0) {
-                                localStorage.setItem('guest_player_name', newName);
-                                window.location.reload();
-                            }
-                        }, 300);
+                    } else {
+                        // Cek apakah user mau ganti nama (bukan cuma tutup)
+                        const newName = prompt("Ganti Nama Guest:", activeUserName);
+                        if(newName && newName.trim().length > 0) {
+                            localStorage.setItem('guest_player_name', newName);
+                            window.location.reload();
+                        }
                     }
-                });
+                }
             };
+
 
 
             return (
