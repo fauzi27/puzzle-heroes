@@ -704,6 +704,43 @@
                 setInventory({potion:1, bomb:0, shuffle:1}); 
                 setGameState('BATTLE');
             };
+                                // --- FITUR PROFILE (LOGIN / GANTI NAMA) ---
+            const handleProfile = () => {
+                // Jika Telegram, info saja
+                if (isTelegram) {
+                    tg.showAlert(`Akun Telegram: ${activeUserName}`);
+                    return;
+                }
+
+                // Jika sudah Login Google
+                if (user) {
+                    if(confirm(`Login sebagai: ${user.displayName}\nEmail: ${user.email}\n\nApakah Anda ingin Logout?`)) {
+                        if(window.logoutGoogle) window.logoutGoogle();
+                    }
+                } 
+                // Jika masih Guest
+                else {
+                    const choice = prompt(
+                        `STATUS: GUEST PLAYER\n` +
+                        `Agar data aman & bisa pindah HP, silakan Login.\n\n` +
+                        `1. 🌐 Login dengan Google (Recommended)\n` +
+                        `2. ✏️ Ganti Nama Guest\n` +
+                        `Ketik nomor (1/2):`
+                    );
+
+                    if (choice === '1') {
+                        if(window.loginGoogle) window.loginGoogle();
+                    } 
+                    else if (choice === '2') {
+                        const newName = prompt("Nama Guest Baru:", activeUserName);
+                        if(newName) {
+                             localStorage.setItem('guest_player_name', newName);
+                             window.location.reload(); 
+                        }
+                    }
+                }
+            };
+
 
             return (
                 <div className="flex flex-col h-screen w-full select-none relative overflow-hidden"
