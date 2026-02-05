@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Puzzle Heroes RPG: Roguelite</title>
+    
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Verdana&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap');
+        
+        body { 
+            font-family: 'Fredoka One', 'Verdana', sans-serif; 
+            background-color: var(--tg-theme-bg-color, #0f172a); 
+            color: var(--tg-theme-text-color, #ffffff);
+            overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; 
+        }
+        .game-font { text-shadow: 2px 2px 0px #000; letter-spacing: 1px; }
+        
+        /* ANIMASI */
+        @keyframes sway-hero { 0%, 100% { transform: translateX(-3px); } 50% { transform: translateX(3px); } }
+        @keyframes float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-6px); } }
+        @keyframes punch-pop { 0% { transform: scale(0) rotate(-45deg); opacity: 0; } 50% { transform: scale(1.5); opacity: 1; } 100% { transform: scale(1.5) translateY(-20px); opacity: 0; } }
+        @keyframes hit-shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-6px) rotate(-2deg); filter: brightness(2) sepia(1); } 75% { transform: translateX(6px) rotate(2deg); } }
+        @keyframes particle-pop { 0% { transform: scale(0.5) translateY(0); opacity: 1; } 100% { transform: scale(1.5) translateY(-30px); opacity: 0; } }
+        @keyframes crumble { 0% { transform: scale(1); filter: brightness(1.5); } 100% { transform: scale(0); opacity: 0; } }
+        @keyframes drop-in { 0% { transform: translateY(-100%); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
+        
+        .anim-float { animation: float 4s ease-in-out infinite; }
+        .anim-sway-hero { animation: sway-hero 2s ease-in-out infinite; }
+        .anim-punch { animation: punch-pop 0.4s ease-out forwards; z-index: 100; pointer-events: none; }
+        .anim-hit { animation: hit-shake 0.3s ease-in-out; }
+        .anim-particle { animation: particle-pop 0.6s ease-out forwards; pointer-events: none; }
+        .anim-crumble { animation: crumble 0.3s ease-in forwards; }
+        .anim-fall { animation: drop-in 0.3s cubic-bezier(0.25, 1, 0.5, 1) backwards; }
+        
+        .css-hp-bar { background: #1e293b; border: 3px solid #475569; border-radius: 8px; position: relative; overflow: hidden; }
+        .css-board-frame { background: rgba(15, 23, 42, 0.9); border: 6px solid #334155; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .btn-game { border-bottom-width: 4px; transition: all 0.1s; }
+        .btn-game:active { border-bottom-width: 0px; transform: translateY(4px); }
+        .star-icon { display: inline-block; width: 16px; height: 16px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23eab308'%3E%3Cpath d='M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z'/%3E%3C/svg%3E"); }
+    </style>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBXxNettfJao-Eb-Y_a1dNuZ8_DOiX_-fo",
+            authDomain: "puzzle-heroes-d5df2.firebaseapp.com",
+            projectId: "puzzle-heroes-d5df2",
+            storageBucket: "puzzle-heroes-d5df2.firebasestorage.app",
+            messagingSenderId: "63425481716",
+            appId: "1:63425481716:web:e496e835b3d071235cc7a1",
+            measurementId: "G-TCN0MV463X"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+        const provider = new GoogleAuthProvider();
+
+        window.loginGoogle = async () => { try { const result = await signInWithPopup(auth, provider); return result.user; } catch (e) { alert(e.message); return null; } };
+        window.logoutGoogle = async () => { try { await signOut(auth); window.location.reload(); } catch (e) { console.error(e); } };
+        window.authListener = (cb) => { onAuthStateChanged(auth, (u) => cb(u || null)); };
+        
+        window.loadCloudData = async (uid) => {
+            if (!uid) return null;
+            try { const s = await getDoc(doc(db, "players", uid.toString())); return s.exists() ? s.data() : null; } catch (e) { return null; }
+        };
+        window.saveCloudData = async (uid, data) => {
+            if (!uid) return;
+            try { await setDoc(doc(db, "players", uid.toString()), data, { merge: true }); } catch (e) { console.error(e); }
+        };
+    </script>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        const ASSETS = {
+          hero: "https://res.cloudinary.com/dsutaioqw/image/upload/v1770120266/hero_knqmzd.png",
+          enemy: "https://res.cloudinary.com/dsutaioqw/image/upload/v1770120266/monster_goblin_lcvfpv.png",
+          boss: "https://res.cloudinary.com/dsutaioqw/image/upload/v1770120266/monster_bos_tn2b0a.png",
+          bg: "https://res.cloudinary.com/dsutaioqw/image/upload/v1/puzzle%20hero/bg_main.png",
+          gem_red: "https://res.cloudinary.com/dsutaioqw/image/upload/v1770120267/gem-fire_rhcs6t.png", 
+          gem_blue: "https://res.cloudinary.com/dsutaioqw/image/upload/v1770120266/gem_water_yk5zsx.png",
+          gem_green: "https://res.cloudinary.com/dsutaioqw/image/upload/v1770120267/gem_nature_jj3l1g.png",
+          gem_yellow: "https://res.cloudinary.com/dsutaioqw/image/upload/v1770120267/gem_lightning_lu9s2z.png",
+          gem_purple: "https://res.cloudinary.com/dsutaioqw/image/upload/v1770120267/gem_shield_bdizjp.png",
+        };
+
+        const GEM_CONFIG = {
+          red: { img: 'gem_red', effect: 'dmg', val: 1.0 },
+          blue: { img: 'gem_blue', effect: 'dmg', val: 1.0 },
+          yellow: { img: 'gem_yellow', effect: 'dmg', val: 1.5 },
+          green: { img: 'gem_green', effect: 'heal', val: 1.5 },
+          purple: { img: 'gem_purple', effect: 'shd', val: 2.0 },
+        };
+
+        const SmartImage = ({ k, className }) => <img src={ASSETS[k]} className={`w-full h-full object-contain ${className}`} onError={(e)=>e.target.style.opacity=0} />;
+        const formatNum = (n) => n >= 1000000 ? (n/1000000).toFixed(1)+'M' : (n >= 1000 ? (n/1000).toFixed(1)+'K' : n);
+
+        function GameApp() {
+            const tg = window.Telegram.WebApp;
+            const [user, setUser] = useState(null);
+            const [isTg, setIsTg] = useState(!!tg.initDataUnsafe?.user);
+
+            const getGuestId = () => {
+                let id = localStorage.getItem('guest_id');
+                if(!id) { id = 'guest_'+Date.now(); localStorage.setItem('guest_id', id); }
+                return id;
+            };
+
+            const activeId = isTg ? tg.initDataUnsafe.user.id : (user ? user.uid : getGuestId());
+            const activeName = isTg ? tg.initDataUnsafe.user.first_name : (user ? user.displayName : (localStorage.getItem('guest_name') || "Guest"));
+
+            // --- STATE UTAMA ---
+            const [gameState, setGameState] = useState('START'); // START, BATTLE, SHOP, REVIVE
+            const [level, setLevel] = useState(1);
+            const [coins, setCoins] = useState(100);
+            
+            // Stats & Inventory (Disimpan ke Cloud)
+            const [stats, setStats] = useState({ hp: 0, atk: 0 }); // Bonus permanen
+            const [items, setItems] = useState({ potion: 1, bomb: 0, shuffle: 1 });
+            const [itemCounts, setItemCounts] = useState({ potion: 0, bomb: 0, shuffle: 0, atk: 0, hp: 0 }); // Utk inflasi harga
+
+            const [isLoaded, setIsLoaded] = useState(false);
+
+            // --- EKONOMI & MATEMATIKA ---
+            // 1. Harga Item (Linear: Naik 10% setiap beli)
+            const getItemPrice = (type) => {
+                const base = { potion: 50, bomb: 100, shuffle: 30 };
+                const count = itemCounts[type] || 0;
+                return Math.floor(base[type] * (1 + (count * 0.1)));
+            };
+
+            // 2. Harga Upgrade (Eksponensial: Naik 15% setiap level)
+            const getUpgradePrice = (type) => {
+                const base = { atk: 200, hp: 200 };
+                const count = itemCounts[type] || 0;
+                return Math.floor(base[type] * Math.pow(1.15, count));
+            };
+
+            // 3. Harga Revive (Based on Stage)
+            const getRevivePrice = () => 200 + (level * 100);
+
+            // 4. Hero Stats Calculation
+            const getHeroMaxHp = () => Math.floor(100 * Math.pow(1.07, level - 1)) + stats.hp;
+            const getHeroAtk = () => Math.floor(15 * Math.pow(1.07, level - 1)) + stats.atk;
+
+            // --- GAMEPLAY STATES ---
+            const [heroHp, setHeroHp] = useState(100);
+            const [shield, setShield] = useState(0);
+            const [enemy, setEnemy] = useState({ hp: 100, maxHp: 100, atk: 10, name: 'Slime' });
+            
+            const [board, setBoard] = useState([]);
+            const [turn, setTurn] = useState('player'); 
+            const [isAnim, setIsAnim] = useState(false);
+            const [floatTxt, setFloatTxt] = useState([]);
+            const [fx, setFx] = useState(null); // punch, etc
+            const [isFalling, setIsFalling] = useState(false);
+
+            // --- LOAD & SAVE ---
+            useEffect(() => {
+                if(!isTg && window.authListener) window.authListener(setUser);
+                tg.ready(); tg.expand(); tg.BackButton.onClick(() => { setGameState('BATTLE'); tg.BackButton.hide(); });
+                
+                (async () => {
+                    if(window.loadCloudData) {
+                        const data = await window.loadCloudData(activeId);
+                        if(data) {
+                            if(data.level) setLevel(data.level);
+                            if(data.totalCoins) setCoins(data.totalCoins);
+                            if(data.bonusStats) setStats(data.bonusStats);
+                            if(data.inventory) setItems(data.inventory);
+                            if(data.itemCounts) setItemCounts(data.itemCounts);
+                        }
+                    }
+                    setIsLoaded(true);
+                })();
+            }, [activeId]);
+
+            useEffect(() => {
+                if(!isLoaded) return;
+                const timer = setTimeout(() => {
+                    if(window.saveCloudData) window.saveCloudData(activeId, {
+                        level, totalCoins: coins, bonusStats: stats, inventory: items, itemCounts,
+                        lastUpdated: Date.now(), username: activeName
+                    });
+                }, 2000);
+                return () => clearTimeout(timer);
+            }, [level, coins, stats, items, itemCounts, isLoaded]);
+
+            // --- SETUP LEVEL ---
+            useEffect(() => {
+                if(!isLoaded) return;
+                const maxHp = getHeroMaxHp();
+                // Kalau baru start/reset, isi darah full. Kalau revive, biarkan darah diatur logic revive.
+                if (gameState === 'START' || (heroHp <= 0 && gameState === 'BATTLE')) setHeroHp(maxHp);
+                
+                const isBoss = level % 5 === 0;
+                const mult = isBoss ? 2.5 : 1;
+                const eHp = Math.floor(100 * Math.pow(1.08, level) * mult);
+                setEnemy({ 
+                    name: isBoss ? `BOSS Lv.${level}` : `Monster Lv.${level}`,
+                    hp: eHp, maxHp: eHp, atk: Math.floor(10 * Math.pow(1.08, level)), isBoss
+                });
+            }, [level, isLoaded]); // Hati2 dependency loop, hanya trigger saat level naik
+
+            // --- BATTLE LOGIC ---
+            const spawnText = (txt, col) => {
+                const id = Date.now()+Math.random();
+                setFloatTxt(p => [...p, {id, txt, col}]);
+                setTimeout(() => setFloatTxt(p => p.filter(x=>x.id!==id)), 1500);
+            };
+
+            const checkMatch = (brd) => {
+                let s = new Set();
+                const R=7, C=6;
+                // Horz
+                for(let r=0; r<R; r++) for(let c=0; c<C-2; c++) {
+                    let t = brd[r][c];
+                    if(t && brd[r][c+1]===t && brd[r][c+2]===t) { s.add(`${r},${c}`); s.add(`${r},${c+1}`); s.add(`${r},${c+2}`); }
+                }
+                // Vert
+                for(let r=0; r<R-2; r++) for(let c=0; c<C; c++) {
+                    let t = brd[r][c];
+                    if(t && brd[r+1][c]===t && brd[r+2][c]===t) { s.add(`${r},${c}`); s.add(`${r+1},${c}`); s.add(`${r+2},${c}`); }
+                }
+                return Array.from(s).map(k => { const [r,c] = k.split(',').map(Number); return {r,c}; });
+            };
+
+            const fillBoard = (brd) => {
+                let nb = brd.map(r => [...r]);
+                for(let c=0; c<6; c++) {
+                    let e = 0;
+                    for(let r=6; r>=0; r--) {
+                        if(nb[r][c] === null) e++;
+                        else if(e>0) { nb[r+e][c] = nb[r][c]; nb[r][c] = null; }
+                    }
+                    for(let i=0; i<e; i++) nb[i][c] = Object.keys(GEM_CONFIG)[Math.floor(Math.random()*5)];
+                }
+                return nb;
+            };
+
+            const resolve = async (brd) => {
+                setIsAnim(true);
+                let curr = brd;
+                let loops = 0;
+                while(loops < 5) {
+                    const m = checkMatch(curr);
+                    if(m.length === 0) break;
+                    
+                    // Calc Dmg
+                    let dmg=0, heal=0, shd=0;
+                    m.forEach(p => {
+                        const t = curr[p.r][p.c];
+                        if(t) {
+                            const v = GEM_CONFIG[t].val;
+                            if(GEM_CONFIG[t].effect === 'dmg') dmg += getHeroAtk() * v;
+                            if(GEM_CONFIG[t].effect === 'heal') heal += getHeroMaxHp() * 0.05 * v;
+                            if(GEM_CONFIG[t].effect === 'shd') shd += 10 * v;
+                            curr[p.r][p.c] = null; // Mark destroy
+                        }
+                    });
+
+                    // Apply Effect
+                    if(dmg>0) {
+                        setEnemy(prev => ({...prev, hp: Math.max(0, prev.hp - Math.floor(dmg))}));
+                        setFx('punch'); spawnText(`-${Math.floor(dmg)}`, '#ef4444'); tg.HapticFeedback.impactOccurred('light');
+                        await new Promise(r=>setTimeout(r, 200)); setFx(null);
+                    }
+                    if(heal>0) { setHeroHp(h => Math.min(getHeroMaxHp(), h + Math.floor(heal))); spawnText(`+${Math.floor(heal)}`, '#22c55e'); }
+                    if(shd>0) { setShield(s => s + Math.floor(shd)); spawnText(`+${Math.floor(shd)}`, '#a855f7'); }
+
+                    await new Promise(r=>setTimeout(r, 300));
+                    
+                    // Fall
+                    curr = fillBoard(curr);
+                    setBoard(curr.map(r=>[...r]));
+                    setIsFalling(true);
+                    await new Promise(r=>setTimeout(r, 400));
+                    setIsFalling(false);
+                    loops++;
+                }
+                setIsAnim(false);
+                setTurn('enemy');
+            };
+
+            // Init Board
+            useEffect(() => {
+                let b = [];
+                for(let r=0; r<7; r++) {
+                    let row = [];
+                    for(let c=0; c<6; c++) row.push(Object.keys(GEM_CONFIG)[Math.floor(Math.random()*5)]);
+                    b.push(row);
+                }
+                setBoard(b);
+            }, []);
+
+            // Turn System
+            useEffect(() => {
+                if(turn === 'enemy' && enemy.hp > 0 && !isAnim) {
+                    const act = async () => {
+                        setIsAnim(true);
+                        await new Promise(r=>setTimeout(r, 1000));
+                        // Enemy Attack
+                        const raw = Math.max(1, enemy.atk);
+                        let final = raw;
+                        if(shield > 0) {
+                            if(shield >= final) { setShield(s=>s-final); final=0; spawnText("BLOCKED", "#a855f7"); }
+                            else { final -= shield; setShield(0); }
+                        }
+                        if(final > 0) {
+                            setHeroHp(h => Math.max(0, h - final));
+                            spawnText(`-${final}`, '#ef4444');
+                            tg.HapticFeedback.notificationOccurred('warning');
+                        }
+                        setTurn('player'); setIsAnim(false);
+                    };
+                    act();
+                }
+            }, [turn, enemy.hp]);
+
+            // Win / Lose Check
+            useEffect(() => {
+                if(enemy.hp <= 0 && gameState === 'BATTLE') {
+                    const rwd = Math.floor(15 * Math.pow(1.085, level - 1));
+                    spawnText("VICTORY!", "#fbbf24");
+                    setTimeout(() => {
+                        setCoins(c => c + rwd);
+                        setLevel(l => l + 1);
+                        setBoard(prev => fillBoard(prev.map(r => r.map(x=>null)))); // Refresh board
+                    }, 1500);
+                }
+                if(heroHp <= 0 && gameState === 'BATTLE') {
+                    setGameState('REVIVE'); // Masuk mode revive
+                }
+            }, [enemy.hp, heroHp, gameState]);
+
+            // --- USER ACTIONS ---
+            const handleDrag = (r, c) => { if(!isAnim && turn==='player') setFx({r,c}); };
+            const handleDrop = (r, c) => {
+                if(!fx) return;
+                const dr = Math.abs(r - fx.r), dc = Math.abs(c - fx.c);
+                if((dr===1 && dc===0) || (dr===0 && dc===1)) {
+                    let nb = board.map(x=>[...x]);
+                    [nb[r][c], nb[fx.r][fx.c]] = [nb[fx.r][fx.c], nb[r][c]];
+                    setBoard(nb);
+                    resolve(nb);
+                }
+                setFx(null);
+            };
+
+            const useItem = (k) => {
+                if(items[k] > 0 && turn==='player' && !isAnim) {
+                    setItems(p => ({...p, [k]: p[k]-1}));
+                    if(k==='potion') { setHeroHp(h => Math.min(getHeroMaxHp(), h + Math.floor(getHeroMaxHp()*0.4))); spawnText("HEAL", "#22c55e"); }
+                    if(k==='bomb') { setEnemy(e => ({...e, hp: Math.max(0, e.hp - getHeroAtk()*2)})); spawnText("BOOM", "#f97316"); }
+                    if(k==='shuffle') { setBoard(fillBoard(board.map(r=>r.map(x=>null)))); spawnText("SHUFFLE", "#3b82f6"); }
+                }
+            };
+
+            const buy = (k, isUpgrade) => {
+                const price = isUpgrade ? getUpgradePrice(k) : getItemPrice(k);
+                if(coins >= price) {
+                    setCoins(c => c - price);
+                    // Update Stats Permainan
+                    if(isUpgrade) {
+                        if(k==='atk') setStats(s => ({...s, atk: s.atk + 2}));
+                        if(k==='hp') setStats(s => ({...s, hp: s.hp + 10}));
+                        setItemCounts(prev => ({...prev, [k]: (prev[k]||0) + 1}));
+                        // Auto Heal saat upgrade HP
+                        if(k==='hp') setHeroHp(getHeroMaxHp());
+                    } else {
+                        setItems(i => ({...i, [k]: i[k] + 1}));
+                        setItemCounts(prev => ({...prev, [k]: (prev[k]||0) + 1}));
+                    }
+                    tg.HapticFeedback.impactOccurred('medium');
+                }
+            };
+
+            const buyCoins = (amt, stars, link) => {
+                if(!isTg) { setCoins(c=>c+amt); return; }
+                if(!link) return alert("Link belum dipasang");
+                tg.openInvoice(link, (s) => {
+                    if(s==='paid') { setCoins(c=>c+amt); tg.showAlert(`Sukses! +${amt} Koin.`); }
+                });
+            };
+
+            // --- REVIVE LOGIC ---
+            const handleRevive = (method) => {
+                if(method === 'star') {
+                    // Revive Premium (Full HP)
+                    if(!isTg) { // Simulasi
+                        setHeroHp(getHeroMaxHp());
+                        setGameState('BATTLE');
+                        return;
+                    }
+                    // Masukkan Link Invoice 1 Star KHUSUS REVIVE di sini nanti
+                    const reviveLink = "https://t.me/$D8iuOsDkIFQgBAAAUoNG2nbqTHI"; // Pakai link 1 star yg ada dulu
+                    tg.openInvoice(reviveLink, (s) => {
+                        if(s==='paid') {
+                            setHeroHp(getHeroMaxHp());
+                            setGameState('BATTLE');
+                        }
+                    });
+                } else if (method === 'coin') {
+                    // Revive Regular (50% HP)
+                    const price = getRevivePrice();
+                    if(coins >= price) {
+                        setCoins(c => c - price);
+                        setHeroHp(Math.floor(getHeroMaxHp() * 0.5));
+                        setGameState('BATTLE');
+                    } else {
+                        tg.showAlert("Koin tidak cukup!");
+                    }
+                }
+            };
+
+            const handleGiveUp = () => {
+                if(confirm("Yakin menyerah? Stage akan reset ke Level 1. (Stats & Item AMAN/TIDAK HILANG)")) {
+                    setLevel(1);
+                    setHeroHp(getHeroMaxHp()); // HP Penuh lagi
+                    setGameState('BATTLE');
+                    // Reset Board
+                    setBoard(fillBoard(board.map(r=>r.map(x=>null))));
+                }
+            };
+
+            // --- RENDER ---
+            return (
+                <div className="h-screen w-full bg-slate-900 relative overflow-hidden select-none text-white">
+                    {/* Background */}
+                    <img src={ASSETS.bg} className="absolute inset-0 w-full h-full object-cover opacity-30 pointer-events-none" />
+                    
+                    {/* Header */}
+                    <div className="absolute top-0 w-full p-2 flex justify-between z-10">
+                        <div onClick={()=>setGameState('SHOP')} className="bg-slate-800/80 border border-yellow-500 rounded-full px-4 py-1 flex items-center gap-2 shadow-lg active:scale-95 transition-transform">
+                            <span>💰</span> <span className="text-yellow-400 font-bold">{formatNum(coins)}</span> <span className="text-xs bg-yellow-900 px-1 rounded">SHOP</span>
+                        </div>
+                        <div className="font-bold text-xl drop-shadow-md">STAGE {level}</div>
+                        <div className="text-xs text-right opacity-70">
+                            {activeName} <br/> <span className="text-[10px] text-green-400">ID:{activeId.toString().slice(0,4)}</span>
+                        </div>
+                    </div>
+
+                    {/* Battle Scene */}
+                    <div className="flex flex-col h-full pt-14 pb-2">
+                        {/* Enemy */}
+                        <div className="flex-1 flex flex-col items-center justify-center relative">
+                            <div className="w-32 h-32 relative anim-sway-hero">
+                                {enemy.isBoss && <SmartImage k="enemy" className="absolute top-2 -left-8 opacity-50 scale-75" />}
+                                <SmartImage k={enemy.isBoss ? 'boss' : 'enemy'} className="drop-shadow-2xl relative z-10" />
+                                {fx==='punch' && <div className="absolute top-0 left-0 text-6xl anim-punch">👊</div>}
+                            </div>
+                            <div className="w-48 h-4 css-hp-bar mt-2">
+                                <div className="h-full bg-red-600 transition-all duration-300" style={{width: `${(enemy.hp/enemy.maxHp)*100}%`}}></div>
+                                <div className="absolute inset-0 text-[10px] flex items-center justify-center font-bold text-white shadow-sm">{enemy.name} {formatNum(enemy.hp)}</div>
+                            </div>
+                        </div>
+
+                        {/* Board */}
+                        <div className="relative mx-auto w-full max-w-[350px] aspect-[6/7] p-1">
+                            <div className="absolute inset-0 css-board-frame"></div>
+                            <div className="relative z-10 grid grid-cols-6 grid-rows-7 h-full gap-1 p-2">
+                                {board.map((row, r) => row.map((gem, c) => (
+                                    <div key={`${r}-${c}`} 
+                                         onMouseDown={()=>handleDrag(r,c)} onMouseUp={()=>handleDrop(r,c)}
+                                         onTouchStart={()=>handleDrag(r,c)} onTouchEnd={(e)=>{
+                                             const touch = e.changedTouches[0];
+                                             const el = document.elementFromPoint(touch.clientX, touch.clientY);
+                                             // Simple hit testing logic or just rely on click for simplicity in this demo code block
+                                             // For robust touch: track coords. For now using click logic mapping.
+                                             handleDrop(r,c); // Trigger logic assuming same cell for simplicity or add complex touch logic
+                                         }}
+                                         className={`relative flex items-center justify-center transition-transform active:scale-90 ${isFalling?'anim-fall':''}`}
+                                         style={isFalling ? {animationDelay: `${c*50}ms`} : {}}>
+                                        {gem && <SmartImage k={GEM_CONFIG[gem].img} className="drop-shadow-md" />}
+                                    </div>
+                                )))}
+                            </div>
+                            {/* Floating Text */}
+                            {floatTxt.map(f => (
+                                <div key={f.id} className="absolute top-1/2 left-1/2 -translate-x-1/2 text-2xl font-black anim-float z-50 pointer-events-none" style={{color:f.col}}>{f.txt}</div>
+                            ))}
+                        </div>
+
+                        {/* Hero & Controls */}
+                        <div className="h-32 flex items-end justify-center pb-4 relative">
+                            {/* Items Left */}
+                            <div className="absolute left-4 bottom-4 flex flex-col gap-2">
+                                {['potion', 'bomb', 'shuffle'].map(k => (
+                                    <button key={k} onClick={()=>useItem(k)} className="w-10 h-10 bg-slate-800 border-2 border-slate-600 rounded-lg relative active:scale-90">
+                                        <div className="text-xl">{k==='potion'?'🧪':(k==='bomb'?'💣':'🔄')}</div>
+                                        <div className="absolute -top-2 -right-2 bg-blue-600 text-[10px] w-5 h-5 rounded-full flex items-center justify-center border border-white">{items[k]}</div>
+                                    </button>
+                                ))}
+                            </div>
+
+                            {/* Hero Center */}
+                            <div className="flex flex-col items-center">
+                                <div className="w-24 h-24 anim-sway-hero"><SmartImage k="hero" /></div>
+                                <div className="w-32 h-4 css-hp-bar mt-1">
+                                    <div className="h-full bg-green-500 transition-all duration-300" style={{width: `${(heroHp/getHeroMaxHp())*100}%`}}></div>
+                                    <div className="absolute inset-0 text-[10px] flex items-center justify-center font-bold text-black/70">HP {formatNum(heroHp)}/{formatNum(getHeroMaxHp())} {shield>0 && `(+${shield})`}</div>
+                                </div>
+                                <div className="text-xs font-mono text-yellow-500 mt-1">ATK: {getHeroAtk()}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* MODAL: SHOP */}
+                    {gameState === 'SHOP' && (
+                        <div className="absolute inset-0 bg-slate-900/95 z-50 p-4 overflow-y-auto anim-fall">
+                            <div className="flex justify-between items-center mb-6">
+                                <h2 className="text-3xl text-yellow-400 font-black">SHOP</h2>
+                                <button onClick={()=>setGameState('BATTLE')} className="bg-slate-700 px-4 py-2 rounded font-bold">CLOSE</button>
+                            </div>
+
+                            {/* Section: UPGRADES */}
+                            <h3 className="text-sm font-bold text-slate-400 uppercase mb-2">Permanent Stats (Harga naik 15%/lvl)</h3>
+                            <div className="space-y-2 mb-6">
+                                <div className="bg-slate-800 p-3 rounded-xl flex justify-between items-center border border-blue-500/30">
+                                    <div>
+                                        <div className="font-bold text-lg">⚔️ Attack Up (+2)</div>
+                                        <div className="text-xs text-slate-400">Level: {itemCounts.atk||0}</div>
+                                    </div>
+                                    <button onClick={()=>buy('atk', true)} disabled={coins<getUpgradePrice('atk')} 
+                                        className={`px-4 py-2 rounded-lg font-bold border-b-4 active:border-b-0 active:translate-y-1 ${coins>=getUpgradePrice('atk')?'bg-blue-600 border-blue-800':'bg-slate-600 border-slate-700 opacity-50'}`}>
+                                        💰{formatNum(getUpgradePrice('atk'))}
+                                    </button>
+                                </div>
+                                <div className="bg-slate-800 p-3 rounded-xl flex justify-between items-center border border-green-500/30">
+                                    <div>
+                                        <div className="font-bold text-lg">❤️ HP Up (+10)</div>
+                                        <div className="text-xs text-slate-400">Level: {itemCounts.hp||0}</div>
+                                    </div>
+                                    <button onClick={()=>buy('hp', true)} disabled={coins<getUpgradePrice('hp')} 
+                                        className={`px-4 py-2 rounded-lg font-bold border-b-4 active:border-b-0 active:translate-y-1 ${coins>=getUpgradePrice('hp')?'bg-blue-600 border-blue-800':'bg-slate-600 border-slate-700 opacity-50'}`}>
+                                        💰{formatNum(getUpgradePrice('hp'))}
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Section: ITEMS */}
+                            <h3 className="text-sm font-bold text-slate-400 uppercase mb-2">Consumables (Harga naik 10%/beli)</h3>
+                            <div className="space-y-2 mb-6">
+                                {['potion', 'bomb', 'shuffle'].map(k => (
+                                    <div key={k} className="bg-slate-800 p-3 rounded-xl flex justify-between items-center">
+                                        <div>
+                                            <div className="font-bold capitalize text-lg">{k==='potion'?'🧪 Potion':(k==='bomb'?'💣 Bomb':'🔄 Shuffle')}</div>
+                                            <div className="text-xs text-slate-400">Owned: {items[k]}</div>
+                                        </div>
+                                        <button onClick={()=>buy(k, false)} disabled={coins<getItemPrice(k)}
+                                            className={`px-4 py-2 rounded-lg font-bold border-b-4 active:border-b-0 active:translate-y-1 ${coins>=getItemPrice(k)?'bg-slate-600 border-slate-800 hover:bg-slate-500':'bg-slate-700 border-slate-800 opacity-50'}`}>
+                                            💰{formatNum(getItemPrice(k))}
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Section: COINS */}
+                            <h3 className="text-sm font-bold text-slate-400 uppercase mb-2">Buy Coins (Support Dev)</h3>
+                            <div className="grid grid-cols-3 gap-2">
+                                <button onClick={()=>buyCoins(1000, 1, "https://t.me/$D8iuOsDkIFQgBAAAUoNG2nbqTHI")} className="bg-yellow-600 p-2 rounded-xl text-center border-b-4 border-yellow-800 active:border-b-0 active:translate-y-1">
+                                    <div className="text-xl font-black">1K</div>
+                                    <div className="text-xs bg-black/20 rounded px-1 mt-1">⭐ 1 Star</div>
+                                </button>
+                                {/* Tambahkan link lain sesuai diskusi sebelumnya */}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* MODAL: REVIVE / DEATH */}
+                    {gameState === 'REVIVE' && (
+                        <div className="absolute inset-0 bg-red-900/90 z-[60] flex flex-col items-center justify-center p-6 text-center anim-fall">
+                            <h1 className="text-5xl font-black text-white mb-2 drop-shadow-xl">YOU DIED</h1>
+                            <div className="text-xl text-white/80 mb-8 font-bold">Stage {level}</div>
+
+                            <div className="w-full max-w-sm space-y-3">
+                                {/* Opsi 1: Revive Star */}
+                                <button onClick={()=>handleRevive('star')} className="w-full py-4 bg-gradient-to-r from-yellow-500 to-yellow-600 rounded-xl font-black text-xl shadow-lg border-b-4 border-yellow-800 active:border-b-0 active:translate-y-1 flex items-center justify-center gap-2">
+                                    <span>⭐ 1 Star</span> 
+                                    <span className="text-sm font-normal text-black/60">(Full HP)</span>
+                                </button>
+                                
+                                {/* Opsi 2: Revive Coin */}
+                                <button onClick={()=>handleRevive('coin')} disabled={coins < getRevivePrice()} 
+                                    className={`w-full py-4 rounded-xl font-bold text-lg border-b-4 active:border-b-0 active:translate-y-1 flex items-center justify-center gap-2 ${coins>=getRevivePrice() ? 'bg-blue-600 border-blue-800 text-white' : 'bg-slate-600 border-slate-700 text-gray-400'}`}>
+                                    <span>💰 {formatNum(getRevivePrice())}</span>
+                                    <span className="text-sm font-normal opacity-70">(50% HP)</span>
+                                </button>
+                                <div className="text-xs text-white/50 mb-4">*Biaya koin naik sesuai Level Stage</div>
+
+                                <div className="h-px bg-white/20 my-4"></div>
+
+                                {/* Opsi 3: Give Up */}
+                                <button onClick={handleGiveUp} className="text-white/70 hover:text-white font-bold border border-white/30 px-6 py-3 rounded-lg w-full">
+                                    GIVE UP (Reset to Stage 1) <br/>
+                                    <span className="text-[10px] font-normal text-green-400">Stats & Item AMAN (Tidak Hilang)</span>
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<GameApp />);
+    </script>
+</body>
+</html>
