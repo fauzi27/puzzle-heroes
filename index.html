@@ -425,23 +425,57 @@
                  setTimeout(() => setFloatingText(prev => prev.filter(item => item.id !== id)), 2000); 
             };
 
+                        // --- SISTEM PEMBAYARAN (TELEGRAM STARS) ---
             const handleStarsPurchase = (coins, stars) => {
+                // 1. Cek apakah main di Telegram?
                 if (!tg.initDataUnsafe?.user) {
-                    if(confirm(`[DEV MODE] Simulate buying ${coins} coins for ${stars} Stars?`)) setTotalCoins(prev => prev + coins);
+                    alert("[MODE BROWSER] Simulasi: Koin bertambah " + coins);
+                    setTotalCoins(prev => prev + coins);
                     return;
                 }
-                tg.showConfirm(`Beli ${formatNumber(coins)} Koin seharga ${stars} Stars?`, (confirmed) => {
-                    if (confirmed) {
+
+                // 2. LINK INVOICE (HASIL DARI LANGKAH 1 TADI)
+                // Tempel Link https://t.me/$... di dalam tanda kutip di bawah ini:
+                const invoiceLink = "https://t.me/$D8iuOsDkIFQgBAAAUoNG2nbqTHI"; 
+
+                if (!invoiceLink || invoiceLink.includes("PASTE_LINK")) {
+                    tg.showAlert("⚠️ Developer lupa pasang Link Invoice!");
+                    return;
+                }
+
+                // 3. BUKA TAGIHAN ASLI
+                tg.openInvoice(invoiceLink, (status) => {
+                    // Status: 'paid', 'cancelled', 'failed', 'pending'
+                    if (status === 'paid') {
+                        // PEMBAYARAN SUKSES!
                         tg.MainButton.showProgress();
+                        
                         setTimeout(() => {
                             tg.MainButton.hideProgress();
+                            
+                            // Berikan Hadiah Koin
                             setTotalCoins(prev => prev + coins);
-                            tg.showAlert("Pembelian Berhasil! Terima Kasih!");
-                            setShowIAP(false);
+                            
+                            // Simpan Transaksi ke Cloud (PENTING)
+                            if(window.saveCloudData) {
+                                window.saveCloudData(activeUserId, {
+                                    totalCoins: totalCoins + coins,
+                                    lastUpdated: Date.now()
+                                });
+                            }
+
+                            tg.showAlert(`✅ PEMBAYARAN SUKSES!\n+${formatNumber(coins)} Koin Diterima.`);
+                            setShowIAP(false); // Tutup menu shop
                         }, 1000);
+                        
+                    } else if (status === 'cancelled') {
+                        // User menutup popup tanpa bayar
+                    } else if (status === 'failed') {
+                        tg.showAlert("Pembayaran Gagal.");
                     }
                 });
             };
+
 
             const useItem = (type) => {
                 if (isProcessing || turn !== 'player' || inventory[type] <= 0) return;
