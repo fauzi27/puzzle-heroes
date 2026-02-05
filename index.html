@@ -616,23 +616,50 @@
                 setGameState('BATTLE');
             };
 
-            // --- MENU PROFIL BARU ---
+                        // --- MENU PROFIL (UI BARU) ---
             const handleProfile = () => {
+                // 1. Jika User Telegram
                 if (isTelegram) {
                     tg.showAlert(`Akun Telegram: ${activeUserName}`);
                     return;
                 }
+
+                // 2. Jika Sudah Login Google
                 if (user) {
-                    if(confirm(`Login sebagai: ${user.displayName}\nEmail: ${user.email}\n\nLogout?`)) window.logoutGoogle();
-                } else {
-                    const choice = prompt(`STATUS: GUEST PLAYER\n1. 🌐 Login Google (Aman & Bisa Pindah HP)\n2. ✏️ Ganti Nama\nKetik (1/2):`);
-                    if (choice === '1') window.loginGoogle();
-                    else if (choice === '2') {
-                        const newName = prompt("Nama Guest Baru:", activeUserName);
-                        if(newName) { localStorage.setItem('guest_player_name', newName); window.location.reload(); }
+                    tg.showConfirm(
+                        `Login sebagai:\n${user.displayName}\n(${user.email})\n\nIngin Logout?`,
+                        (status) => {
+                            if (status) window.logoutGoogle();
+                        }
+                    );
+                    return;
+                } 
+
+                // 3. Jika Masih Guest (Tampilkan Pilihan Tombol)
+                tg.showPopup({
+                    title: 'STATUS: GUEST PLAYER',
+                    message: 'Agar progresmu aman dan bisa pindah HP, disarankan untuk Login.',
+                    buttons: [
+                        {id: 'login', type: 'default', text: '🌐 Login Google (Aman)'},
+                        {id: 'rename', type: 'default', text: '✏️ Ganti Nama Guest'},
+                        {id: 'cancel', type: 'destructive', text: 'Batal'}
+                    ]
+                }, (buttonId) => {
+                    if (buttonId === 'login') {
+                        window.loginGoogle();
+                    } else if (buttonId === 'rename') {
+                        // Kasih jeda sedikit biar popup nutup dulu
+                        setTimeout(() => {
+                            const newName = prompt("Masukkan Nama Baru:", activeUserName);
+                            if(newName && newName.trim().length > 0) {
+                                localStorage.setItem('guest_player_name', newName);
+                                window.location.reload();
+                            }
+                        }, 300);
                     }
-                }
+                });
             };
+
 
             return (
                 <div className="flex flex-col h-screen w-full select-none relative overflow-hidden"
