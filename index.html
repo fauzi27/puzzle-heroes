@@ -220,34 +220,67 @@
 
         // --- GAME LOGIC ---
 
-        function GameApp() {
-                        const tg = window.Telegram.WebApp;
+                function GameApp() {
+            const tg = window.Telegram.WebApp;
 
-            // --- LOGIKA ID PEMAIN (TELEGRAM vs BROWSER) ---
+            // --- 1. STATE IDENTITAS (Telegram vs Google vs Guest) ---
+            const [user, setUser] = useState(null); // Data User Google
+            const [isTelegram, setIsTelegram] = useState(!!tg.initDataUnsafe?.user);
             
-            // Fungsi bikin ID Tamu jika main di browser
+            // ID Default (Guest)
             const getBrowserId = () => {
-                // Cek apakah browser ini sudah punya ID sebelumnya?
                 let savedId = localStorage.getItem('guest_player_id');
                 if (!savedId) {
-                    // Jika belum, buat ID acak (misal: guest_170999_882)
                     savedId = 'guest_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
                     localStorage.setItem('guest_player_id', savedId);
                 }
                 return savedId;
             };
 
-            // Tentukan ID: Prioritas Telegram > Jika tidak ada, pakai ID Browser
-            const telegramUserId = tg.initDataUnsafe?.user?.id || getBrowserId();
-            
-            // Tentukan Nama: Prioritas Telegram > Jika tidak ada, pakai "Guest"
-            const telegramName = tg.initDataUnsafe?.user?.first_name || "Guest Player";
+            // Tentukan ID yang dipakai saat ini (Prioritas: Telegram > Google > Guest)
+            const activeUserId = isTelegram 
+                ? tg.initDataUnsafe.user.id 
+                : (user ? user.uid : getBrowserId());
 
+            // Tentukan Nama yang dipakai
+            const activeUserName = isTelegram 
+                ? tg.initDataUnsafe.user.first_name 
+                : (user ? user.displayName : (localStorage.getItem('guest_player_name') || "Guest Player"));
 
-            // -- INITIAL SETUP --
+            // --- 2. LISTENER AUTHENTICATION (Cek Login Google) ---
+            useEffect(() => {
+                // Hanya jalankan listener jika BUKAN di Telegram
+                if (!isTelegram && window.authListener) {
+                    window.authListener((googleUser) => {
+                        if (googleUser) {
+                            // User Login
+                            setUser(googleUser);
+                            localStorage.setItem('guest_player_name', googleUser.displayName);
+                            
+                            // Load data Cloud milik akun Google ini
+                            if(window.loadCloudData) {
+                                window.loadCloudData(googleUser.uid).then(data => {
+                                    if(data) {
+                                        // Update State Game dengan data dari Cloud
+                                        if(data.level) setLevel(data.level);
+                                        if(data.totalCoins) setTotalCoins(data.totalCoins);
+                                        if(data.bonusStats) setBonusStats(data.bonusStats);
+                                        if(data.inventory) setInventory(data.inventory);
+                                    }
+                                });
+                            }
+                        } else {
+                            // User Logout
+                            setUser(null);
+                        }
+                    });
+                }
+            }, [isTelegram]);
+
+            // --- 3. INITIAL SETUP (Telegram Ready) ---
             useEffect(() => {
                 tg.ready();
-                tg.expand(); 
+                tg.expand();
                 tg.BackButton.onClick(() => {
                     setGameState('BATTLE');
                     tg.BackButton.hide();
@@ -255,10 +288,9 @@
             }, []);
 
             // ==========================================
-            // 3. STATE MANAGEMENT (Diganti untuk Firebase)
+            // 4. STATE MANAGEMENT (Variable Game)
             // ==========================================
-            
-            // Nilai Default (User Baru)
+
             const defaultStats = {
                 level: 1,
                 totalCoins: 100,
