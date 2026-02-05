@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Puzzle Heroes RPG + Firebase</title>
+    <title>Puzzle Heroes RPG + Firebase Auth</title>
     
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
@@ -87,12 +87,10 @@
     </style>
 
     <script type="module">
-        // Import Library (Database + Auth/Login)
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
         import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
-        // Konfigurasi Anda
         const firebaseConfig = {
             apiKey: "AIzaSyBXxNettfJao-Eb-Y_a1dNuZ8_DOiX_-fo",
             authDomain: "puzzle-heroes-d5df2.firebaseapp.com",
@@ -103,23 +101,18 @@
             measurementId: "G-TCN0MV463X"
         };
 
-        // Initialize Firebase
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
-        const auth = getAuth(app); // Init Auth
-        const provider = new GoogleAuthProvider(); // Init Google
+        const auth = getAuth(app);
+        const provider = new GoogleAuthProvider();
 
-        // --- FUNGSI AUTHENTICATION (LOGIN/LOGOUT) ---
-        
+        // --- AUTH FUNCTIONS ---
         window.loginGoogle = async () => {
             try {
                 const result = await signInWithPopup(auth, provider);
-                const user = result.user;
-                console.log("Login Sukses:", user.displayName);
-                return user;
+                return result.user;
             } catch (error) {
-                console.error("Login Gagal:", error);
-                alert("Login Gagal: " + error.message);
+                alert("Login Error: " + error.message);
                 return null;
             }
         };
@@ -127,26 +120,18 @@
         window.logoutGoogle = async () => {
             try {
                 await signOut(auth);
-                console.log("Logout Sukses");
-                window.location.reload(); 
-            } catch (error) {
-                console.error("Logout Error:", error);
-            }
+                window.location.reload();
+            } catch (error) { console.error(error); }
         };
 
-        // Listener: Cek status login real-time
         window.authListener = (callback) => {
             onAuthStateChanged(auth, (user) => {
-                if (user) {
-                    callback(user); 
-                } else {
-                    callback(null); 
-                }
+                if (user) callback(user);
+                else callback(null);
             });
         };
 
-        // --- FUNGSI DATABASE (LOAD & SAVE) ---
-
+        // --- DATABASE FUNCTIONS ---
         window.loadCloudData = async (userId) => {
             if (!userId) return null;
             try {
@@ -158,9 +143,9 @@
 
         window.saveCloudData = async (userId, data) => {
             if (!userId) return;
-            try { 
-                await setDoc(doc(db, "players", userId.toString()), data, { merge: true }); 
-            } catch (error) { console.error(error); }
+            try {
+                await setDoc(doc(db, "players", userId.toString()), data, { merge: true });
+            } catch (error) { console.error("Save Error", error); }
         };
     </script>
 
@@ -197,8 +182,6 @@
         };
         
         const MONSTER_NAMES = ["Slime", "Goblin", "Wolf", "Orc", "Troll", "Golem", "Warlock", "Dragon", "Demon", "God"];
-
-        // --- HELPER FUNCTIONS ---
         const formatNumber = (num) => {
             if (num >= 1000000000) return (num / 1000000000).toFixed(2) + 'B';
             if (num >= 1000000) return (num / 1000000).toFixed(2) + 'M';
@@ -218,16 +201,18 @@
             );
         };
 
-        // --- GAME LOGIC ---
+        // ==========================================
+        //  MAIN GAME COMPONENT
+        // ==========================================
 
-                function GameApp() {
+        function GameApp() {
             const tg = window.Telegram.WebApp;
 
-            // --- 1. STATE IDENTITAS (Telegram vs Google vs Guest) ---
+            // --- 1. IDENTITAS & AUTHENTICATION ---
             const [user, setUser] = useState(null); // Data User Google
             const [isTelegram, setIsTelegram] = useState(!!tg.initDataUnsafe?.user);
             
-            // ID Default (Guest)
+            // Generate ID Guest jika belum ada
             const getBrowserId = () => {
                 let savedId = localStorage.getItem('guest_player_id');
                 if (!savedId) {
@@ -237,60 +222,16 @@
                 return savedId;
             };
 
-            // Tentukan ID yang dipakai saat ini (Prioritas: Telegram > Google > Guest)
+            // Tentukan ID & Nama Aktif
             const activeUserId = isTelegram 
                 ? tg.initDataUnsafe.user.id 
                 : (user ? user.uid : getBrowserId());
 
-            // Tentukan Nama yang dipakai
             const activeUserName = isTelegram 
                 ? tg.initDataUnsafe.user.first_name 
                 : (user ? user.displayName : (localStorage.getItem('guest_player_name') || "Guest Player"));
 
-            // --- 2. LISTENER AUTHENTICATION (Cek Login Google) ---
-            useEffect(() => {
-                // Hanya jalankan listener jika BUKAN di Telegram
-                if (!isTelegram && window.authListener) {
-                    window.authListener((googleUser) => {
-                        if (googleUser) {
-                            // User Login
-                            setUser(googleUser);
-                            localStorage.setItem('guest_player_name', googleUser.displayName);
-                            
-                            // Load data Cloud milik akun Google ini
-                            if(window.loadCloudData) {
-                                window.loadCloudData(googleUser.uid).then(data => {
-                                    if(data) {
-                                        // Update State Game dengan data dari Cloud
-                                        if(data.level) setLevel(data.level);
-                                        if(data.totalCoins) setTotalCoins(data.totalCoins);
-                                        if(data.bonusStats) setBonusStats(data.bonusStats);
-                                        if(data.inventory) setInventory(data.inventory);
-                                    }
-                                });
-                            }
-                        } else {
-                            // User Logout
-                            setUser(null);
-                        }
-                    });
-                }
-            }, [isTelegram]);
-
-            // --- 3. INITIAL SETUP (Telegram Ready) ---
-            useEffect(() => {
-                tg.ready();
-                tg.expand();
-                tg.BackButton.onClick(() => {
-                    setGameState('BATTLE');
-                    tg.BackButton.hide();
-                });
-            }, []);
-
-            // ==========================================
-            // 4. STATE MANAGEMENT (Variable Game)
-            // ==========================================
-
+            // --- 2. STATE GAME UTAMA ---
             const defaultStats = {
                 level: 1,
                 totalCoins: 100,
@@ -299,76 +240,86 @@
             };
 
             const [gameState, setGameState] = useState('START'); 
-            
-            // State Data Pemain
             const [level, setLevel] = useState(defaultStats.level);
             const [totalCoins, setTotalCoins] = useState(defaultStats.totalCoins); 
             const [bonusStats, setBonusStats] = useState(defaultStats.bonusStats); 
             const [inventory, setInventory] = useState(defaultStats.inventory);
-            
-            // State Loading Data Cloud
             const [isCloudLoaded, setIsCloudLoaded] = useState(false);
 
-            // -- LOAD DATA DARI FIREBASE (Jalan sekali saat Start) --
+            // --- 3. LOGIKA AUTH LISTENER & LOAD DATA ---
+            
+            // Listener Google Login
+            useEffect(() => {
+                if (!isTelegram && window.authListener) {
+                    window.authListener((googleUser) => {
+                        if (googleUser) {
+                            setUser(googleUser);
+                            localStorage.setItem('guest_player_name', googleUser.displayName);
+                            // Load data akun Google
+                            if(window.loadCloudData) {
+                                window.loadCloudData(googleUser.uid).then(data => {
+                                    if(data) {
+                                        if(data.level) setLevel(data.level);
+                                        if(data.totalCoins) setTotalCoins(data.totalCoins);
+                                        if(data.bonusStats) setBonusStats(data.bonusStats);
+                                        if(data.inventory) setInventory(data.inventory);
+                                    }
+                                });
+                            }
+                        } else {
+                            setUser(null);
+                        }
+                    });
+                }
+            }, [isTelegram]);
+
+            // Setup Telegram
+            useEffect(() => {
+                tg.ready();
+                tg.expand();
+                tg.BackButton.onClick(() => { setGameState('BATTLE'); tg.BackButton.hide(); });
+            }, []);
+
+            // Load Data Awal (Start Game)
             useEffect(() => {
                 const initGameData = async () => {
                     if (window.loadCloudData) {
-                        const cloudData = await window.loadCloudData(telegramUserId);
-                        
+                        // Gunakan activeUserId yang sudah pintar (Telegram/Google/Guest)
+                        const cloudData = await window.loadCloudData(activeUserId);
                         if (cloudData) {
-                            // Jika ada data di server, timpa state lokal
                             if(cloudData.level) setLevel(cloudData.level);
                             if(cloudData.totalCoins) setTotalCoins(cloudData.totalCoins);
                             if(cloudData.bonusStats) setBonusStats(cloudData.bonusStats);
                             if(cloudData.inventory) setInventory(cloudData.inventory);
                         }
                     }
-                    // Tandai loading selesai, agar Autosave bisa aktif
                     setIsCloudLoaded(true);
                 };
-                
                 initGameData();
-            }, []); // [] artinya hanya jalan sekali
+            }, [activeUserId]); // Reload kalau ID berubah (misal login)
 
-            // -- AUTO SAVE KE FIREBASE (Dengan Jeda/Debounce) --
+            // Auto Save
             useEffect(() => {
-                // Jangan simpan kalau data belum selesai dimuat (supaya tidak menimpa data server dengan level 1)
                 if (!isCloudLoaded) return;
-
                 const dataToSave = {
-                    level,
-                    totalCoins,
-                    bonusStats,
-                    inventory,
-                    lastUpdated: new Date().toISOString(),
-                    username: telegramName
+                    level, totalCoins, bonusStats, inventory,
+                    lastUpdated: Date.now(), // Penting untuk rules security
+                    username: activeUserName
                 };
-
-                // Gunakan timeout agar tidak spam request ke Firebase setiap detik
                 const saveTimeout = setTimeout(() => {
-                    if (window.saveCloudData) {
-                        window.saveCloudData(telegramUserId, dataToSave);
-                    }
-                }, 2000); // Simpan 2 detik setelah perubahan terakhir
-
+                    if (window.saveCloudData) window.saveCloudData(activeUserId, dataToSave);
+                }, 2000);
                 return () => clearTimeout(saveTimeout);
-            }, [level, totalCoins, bonusStats, inventory, isCloudLoaded]);
+            }, [level, totalCoins, bonusStats, inventory, isCloudLoaded, activeUserId, activeUserName]);
 
 
-            // --- LOGIKA GAME LANJUTAN ---
-
+            // --- 4. GAMEPLAY LOGIC (BATTLE) ---
             const [currentReward, setCurrentReward] = useState(0);
             
             const calculateHeroStats = (lvl, bonuses) => {
                 const baseHp = Math.floor(100 * Math.pow(1.07, lvl - 1));
                 const baseAtk = Math.floor(15 * Math.pow(1.07, lvl - 1));
-                return { 
-                    maxHp: baseHp + bonuses.hp, 
-                    hp: baseHp + bonuses.hp, 
-                    atk: baseAtk + bonuses.atk, 
-                    shield: 0, 
-                    def: 0 
-                };
+                return { maxHp: baseHp + bonuses.hp, hp: baseHp + bonuses.hp, atk: baseAtk + bonuses.atk, shield: 0, def: 0 };
             };
 
             const [hero, setHero] = useState(calculateHeroStats(level, bonusStats));
@@ -402,30 +353,21 @@
                 };
             };
 
-            // -- UPDATE HERO & ENEMY SAAT DATA CLOUD MASUK --
-            // Ini penting agar saat data cloud masuk (misal level 10), monster langsung berubah jadi monster level 10
+            // Update Hero/Enemy saat Level/Stats Berubah
             useEffect(() => {
                 if (isCloudLoaded) {
                     setHero(prev => {
                         const newStats = calculateHeroStats(level, bonusStats);
-                        // Kita reset HP Full saat load ulang / level up
                         return { ...newStats, hp: newStats.maxHp };
                     });
                     setEnemy(generateEnemy(level));
                 }
-            }, [isCloudLoaded, level, bonusStats]); // Jalan setiap kali level/stats berubah
+            }, [isCloudLoaded, level, bonusStats]);
+
+            useEffect(() => { setBoard(createValidBoard()); }, []);
 
             useEffect(() => {
-                setBoard(createValidBoard());
-            }, []);
-
-            // Logic tombol Back Telegram
-            useEffect(() => {
-                if (gameState === 'SHOP' || showIAP) {
-                    tg.BackButton.show();
-                } else {
-                    tg.BackButton.hide();
-                }
+                if (gameState === 'SHOP' || showIAP) tg.BackButton.show(); else tg.BackButton.hide();
             }, [gameState, showIAP]);
 
             const calculateCoinReward = (lvl) => Math.floor(15 * Math.pow(1.085, lvl - 1));
@@ -476,11 +418,7 @@
                 setTimeout(() => setParticles(p => p.filter(x => x.id !== newPart.id)), 600);
             };
 
-            const triggerPunch = (target) => {
-                setPunchEffect(target);
-                setTimeout(() => setPunchEffect(null), 600);
-            };
-            
+            const triggerPunch = (target) => { setPunchEffect(target); setTimeout(() => setPunchEffect(null), 600); };
             const spawnText = (txt, color) => {
                  const id = Date.now() + Math.random();
                  setFloatingText(p => [...p, { id, txt, color }]);
@@ -489,13 +427,9 @@
 
             const handleStarsPurchase = (coins, stars) => {
                 if (!tg.initDataUnsafe?.user) {
-                    // Fallback simulasi untuk testing di browser biasa
-                    if(confirm(`[DEV MODE] Simulate buying ${coins} coins for ${stars} Stars?`)) {
-                         setTotalCoins(prev => prev + coins);
-                    }
+                    if(confirm(`[DEV MODE] Simulate buying ${coins} coins for ${stars} Stars?`)) setTotalCoins(prev => prev + coins);
                     return;
                 }
-
                 tg.showConfirm(`Beli ${formatNumber(coins)} Koin seharga ${stars} Stars?`, (confirmed) => {
                     if (confirmed) {
                         tg.MainButton.showProgress();
@@ -527,25 +461,17 @@
                     spawnText("BOOM!", '#f97316');
                     setScreenFlash('anim-bomb');
                     setTimeout(() => setScreenFlash(''), 500);
-
                     const centerR = 3, centerC = 3;
                     const targets = [];
-                    for(let r = centerR-1; r <= centerR+1; r++) {
-                        for(let c = centerC-1; c <= centerC+1; c++) {
-                            if (board[r] && board[r][c]) targets.push({r, c});
-                        }
-                    }
-                    
+                    for(let r = centerR-1; r <= centerR+1; r++) { for(let c = centerC-1; c <= centerC+1; c++) { if (board[r] && board[r][c]) targets.push({r, c}); } }
                     const dmg = Math.floor(hero.atk * 2.0); 
                     setEnemy(prev => ({...prev, hp: Math.max(0, prev.hp - dmg)}));
                     spawnText(`-${dmg}`, '#ef4444');
                     triggerPunch('enemy');
-
                     const newBoard = board.map(row => [...row]);
                     setCrushingCells(targets.map(m => `${m.r},${m.c}`));
                     targets.forEach(t => { if (newBoard[t.r][t.c]) { spawnParticles(t.r, t.c, newBoard[t.r][t.c]); newBoard[t.r][t.c] = null; } });
                     setBoard(newBoard);
-
                     setTimeout(async () => {
                          setCrushingCells([]);
                          let activeBoard = newBoard.map(row => [...row]);
@@ -567,20 +493,11 @@
             const buyItem = (item, price) => {
                 if (totalCoins >= price) {
                     setTotalCoins(prev => prev - price);
-                    if (item === 'atk') { 
-                        setBonusStats(prev => ({ ...prev, atk: prev.atk + 2 })); 
-                        // Hero akan otomatis terupdate via useEffect
-                    }
-                    else if (item === 'hp') { 
-                        setBonusStats(prev => ({ ...prev, hp: prev.hp + 10 })); 
-                        // Hero akan otomatis terupdate via useEffect
-                    }
+                    if (item === 'atk') setBonusStats(prev => ({ ...prev, atk: prev.atk + 2 })); 
+                    else if (item === 'hp') setBonusStats(prev => ({ ...prev, hp: prev.hp + 10 })); 
                     else setInventory(prev => ({...prev, [item]: prev[item] + 1}));
-                    
                     tg.HapticFeedback.impactOccurred('medium');
-                } else {
-                    tg.HapticFeedback.notificationOccurred('error');
-                }
+                } else tg.HapticFeedback.notificationOccurred('error');
             };
 
             const resolveBoard = async (currentBoard) => {
@@ -682,72 +599,47 @@
                 if (enemy.hp <= 0 && gameState === 'BATTLE') { 
                     const reward = calculateCoinReward(level); 
                     setCurrentReward(reward); 
-                    setTimeout(() => {
-                        setGameState('REWARD');
-                        tg.HapticFeedback.notificationOccurred('success');
-                    }, 1000); 
+                    setTimeout(() => { setGameState('REWARD'); tg.HapticFeedback.notificationOccurred('success'); }, 1000); 
                 }
                 if (hero.hp <= 0 && gameState === 'BATTLE') setGameState('GAMEOVER');
             }, [enemy.hp, hero.hp]);
 
             const handleNextLevel = () => {
                 setTotalCoins(prev => prev + currentReward);
-                const nextLevel = level + 1;
-                setLevel(nextLevel);
-                // Hero akan terupdate otomatis via useEffect
+                setLevel(prev => prev + 1);
                 setGameState('BATTLE'); setTurnBanner('START!'); setTimeout(()=>setTurnBanner(''), 1500); setTurn('player'); setIsProcessing(false);
             };
 
             const restartGame = () => {
                 setLevel(1);
-                // Hero akan terupdate otomatis via useEffect
                 setInventory({potion:1, bomb:0, shuffle:1}); 
                 setGameState('BATTLE');
             };
-                                // --- FITUR PROFILE (LOGIN / GANTI NAMA) ---
+
+            // --- MENU PROFIL BARU ---
             const handleProfile = () => {
-                // Jika Telegram, info saja
                 if (isTelegram) {
                     tg.showAlert(`Akun Telegram: ${activeUserName}`);
                     return;
                 }
-
-                // Jika sudah Login Google
                 if (user) {
-                    if(confirm(`Login sebagai: ${user.displayName}\nEmail: ${user.email}\n\nApakah Anda ingin Logout?`)) {
-                        if(window.logoutGoogle) window.logoutGoogle();
-                    }
-                } 
-                // Jika masih Guest
-                else {
-                    const choice = prompt(
-                        `STATUS: GUEST PLAYER\n` +
-                        `Agar data aman & bisa pindah HP, silakan Login.\n\n` +
-                        `1. 🌐 Login dengan Google (Recommended)\n` +
-                        `2. ✏️ Ganti Nama Guest\n` +
-                        `Ketik nomor (1/2):`
-                    );
-
-                    if (choice === '1') {
-                        if(window.loginGoogle) window.loginGoogle();
-                    } 
+                    if(confirm(`Login sebagai: ${user.displayName}\nEmail: ${user.email}\n\nLogout?`)) window.logoutGoogle();
+                } else {
+                    const choice = prompt(`STATUS: GUEST PLAYER\n1. 🌐 Login Google (Aman & Bisa Pindah HP)\n2. ✏️ Ganti Nama\nKetik (1/2):`);
+                    if (choice === '1') window.loginGoogle();
                     else if (choice === '2') {
                         const newName = prompt("Nama Guest Baru:", activeUserName);
-                        if(newName) {
-                             localStorage.setItem('guest_player_name', newName);
-                             window.location.reload(); 
-                        }
+                        if(newName) { localStorage.setItem('guest_player_name', newName); window.location.reload(); }
                     }
                 }
             };
-
 
             return (
                 <div className="flex flex-col h-screen w-full select-none relative overflow-hidden"
                      onTouchStart={(e) => {}} 
                      onMouseUp={handleDragEnd} onTouchEnd={handleDragEnd}>
                      
-                    {/* BACKGROUND & FLASH */}
+                    {/* BACKGROUND */}
                     <div className={`absolute inset-0 z-50 pointer-events-none ${screenFlash}`}></div>
                     <div className="absolute inset-0 z-0 bg-slate-900">
                         <img src={ASSETS.bg_main} className="w-full h-full object-cover opacity-40" onError={(e) => e.target.style.display='none'}/>
@@ -762,15 +654,17 @@
                              onClick={() => { if(gameState==='BATTLE' || gameState==='REWARD' || gameState==='START') setGameState('SHOP'); }}>
                             <span className="text-2xl">💰</span>
                             <span className="text-yellow-400 font-black text-lg game-font">{formatNumber(totalCoins)}</span>
-                            <span className="ml-1 text-xs text-yellow-600 bg-yellow-950 px-1 rounded">SHOP</span>
                         </div>
                         <div className="flex flex-col items-center">
                             <span className="text-white/90 font-black text-xl tracking-[0.2em] drop-shadow-md game-font">STAGE {level}</span>
                         </div>
                         
-                        {/* USER INFO TELEGRAM (JIKA ADA) */}
-                        <div className="w-20 text-xs text-right text-white/50">
-                             {telegramName !== "Guest" ? `Hi, ${telegramName}` : ''}
+                        {/* USER INFO / PROFILE MENU */}
+                        <div className="flex flex-col items-end cursor-pointer active:scale-95 transition-transform" onClick={handleProfile}>
+                             <div className="text-[10px] text-yellow-500 font-bold tracking-wider">PLAYER</div>
+                             <div className="text-sm font-bold text-white flex items-center gap-1">
+                                {activeUserName} <span className="text-[10px] opacity-50">{user ? '🌐' : '✏️'}</span>
+                             </div>
                         </div>
                     </div>
 
@@ -779,12 +673,7 @@
                         {/* ENEMY */}
                         <div className="relative flex flex-col items-center mt-6"> 
                             <div className={`relative w-32 h-32 ${enemyAnim} anim-sway-enemy z-30`}>
-                                 {enemy.isBoss && (
-                                     <>
-                                        <div className="absolute top-8 -left-12 w-20 h-20 opacity-80 z-0"><SmartImage assetKey="enemy_goblin" className="drop-shadow-lg" /></div>
-                                        <div className="absolute top-8 -right-12 w-20 h-20 opacity-80 z-0 scale-x-[-1]"><SmartImage assetKey="enemy_goblin" className="drop-shadow-lg" /></div>
-                                     </>
-                                 )}
+                                 {enemy.isBoss && <div className="absolute top-8 -left-12 w-20 h-20 opacity-80 z-0"><SmartImage assetKey="enemy_goblin" /></div>}
                                  <SmartImage assetKey={enemy.isBoss ? 'enemy_boss' : 'enemy_goblin'} className="drop-shadow-2xl z-20 relative" />
                             </div>
                             <div className="relative w-64 h-8 css-hp-bar -mt-4 z-20">
@@ -800,9 +689,7 @@
                         {/* BOARD */}
                         <div className="flex-1 flex items-center justify-center relative my-0">
                             {particles.map(p => (
-                                <div key={p.id} className="absolute w-12 h-12 anim-particle z-50" style={{top: p.top, left: p.left}}>
-                                    <SmartImage assetKey={GEM_CONFIG[p.type].assetKey} />
-                                </div>
+                                <div key={p.id} className="absolute w-12 h-12 anim-particle z-50" style={{top: p.top, left: p.left}}><SmartImage assetKey={GEM_CONFIG[p.type].assetKey} /></div>
                             ))}
                             <div className="relative w-full max-w-[360px] aspect-[6/7] p-2">
                                 <div className="absolute inset-0 css-board-frame z-0"></div>
@@ -811,8 +698,7 @@
                                         <div key={`${r}-${c}`} 
                                              onMouseDown={(e) => handleDragStart(e, r, c)}
                                              onTouchStart={(e) => handleDragStart(e, r, c)}
-                                             className={`relative w-full h-full flex items-center justify-center transition-transform active:scale-90 
-                                                        ${crushingCells.includes(`${r},${c}`) ? 'anim-crumble' : ''}`}>
+                                             className={`relative w-full h-full flex items-center justify-center transition-transform active:scale-90 ${crushingCells.includes(`${r},${c}`) ? 'anim-crumble' : ''}`}>
                                              {type && <SmartImage assetKey={GEM_CONFIG[type].assetKey} className="drop-shadow-md" />}
                                         </div>
                                     )))}
@@ -820,44 +706,33 @@
                             </div>
                         </div>
 
-                        {/* HERO & ITEMS WRAPPER */}
+                        {/* HERO & ITEMS */}
                         <div className="relative z-20 w-full flex flex-col items-center pb-8">
-                            
-                            {/* HP BAR HERO */}
                             <div className="relative w-64 h-8 css-hp-bar mb-[-10px] z-10">
                                     <div className="absolute inset-0 bg-red-900 border border-slate-700"></div>
                                     <div className="absolute top-0 left-0 h-full bg-gradient-to-r from-green-500 to-green-400 transition-all duration-300" style={{width: `${(hero.hp/hero.maxHp)*100}%`}}></div>
                                     <div className="absolute inset-0 flex items-center justify-between px-3 text-xs font-bold text-white game-font z-10">
-                                    <span>HERO (ATK:{hero.atk}) {hero.shield > 0 && `(🛡️${hero.shield})`}</span><span>{formatNumber(hero.hp)}</span>
+                                    <span>HERO (ATK:{hero.atk})</span><span>{formatNumber(hero.hp)}</span>
                                     </div>
                             </div>
-
-                            {/* CONTAINER RELATIVE UNTUK HERO & ITEMS */}
                             <div className="relative w-36 h-36">
-                                {/* AVATAR HERO */}
-                                <div className={`w-full h-full ${heroAnim} anim-sway-hero z-30 relative`}>
-                                        <SmartImage assetKey="hero" className="drop-shadow-2xl scale-110 origin-bottom" />
-                                </div>
-                                
-                                {/* ITEM BUBBLES - Absolute di kanan bahu hero */}
-                                <div className="absolute -right-12 top-0 flex flex-col gap-2 z-50 anim-float" style={{animationDuration: '3.5s'}}>
+                                <div className={`w-full h-full ${heroAnim} anim-sway-hero z-30 relative`}><SmartImage assetKey="hero" className="drop-shadow-2xl scale-110 origin-bottom" /></div>
+                                <div className="absolute -right-12 top-0 flex flex-col gap-2 z-50 anim-float">
                                     <button onClick={() => useItem('potion')} className={`w-9 h-9 rounded-full border-2 flex items-center justify-center relative btn-game shadow-xl ${inventory.potion > 0 ? 'bg-slate-700 border-green-500 text-lg' : 'bg-slate-800 border-slate-600 opacity-50 grayscale'}`}>
-                                        🧪 <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-bold w-4 h-4 flex items-center justify-center rounded-full border border-slate-900 shadow-sm">{inventory.potion}</span>
+                                        🧪 <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-bold w-4 h-4 rounded-full border border-slate-900 shadow-sm">{inventory.potion}</span>
                                     </button>
                                     <button onClick={() => useItem('bomb')} className={`w-9 h-9 rounded-full border-2 flex items-center justify-center relative btn-game shadow-xl ${inventory.bomb > 0 ? 'bg-slate-700 border-orange-500 text-lg' : 'bg-slate-800 border-slate-600 opacity-50 grayscale'}`}>
-                                        💣 <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-bold w-4 h-4 flex items-center justify-center rounded-full border border-slate-900 shadow-sm">{inventory.bomb}</span>
+                                        💣 <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-bold w-4 h-4 rounded-full border border-slate-900 shadow-sm">{inventory.bomb}</span>
                                     </button>
                                     <button onClick={() => useItem('shuffle')} className={`w-9 h-9 rounded-full border-2 flex items-center justify-center relative btn-game shadow-xl ${inventory.shuffle > 0 ? 'bg-slate-700 border-blue-500 text-lg' : 'bg-slate-800 border-slate-600 opacity-50 grayscale'}`}>
-                                        🔄 <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-bold w-4 h-4 flex items-center justify-center rounded-full border border-slate-900 shadow-sm">{inventory.shuffle}</span>
+                                        🔄 <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-bold w-4 h-4 rounded-full border border-slate-900 shadow-sm">{inventory.shuffle}</span>
                                     </button>
                                 </div>
-                                
                                 {punchEffect === 'hero' && <div className="absolute bottom-20 z-50 text-6xl anim-punch">👊</div>}
                             </div>
                         </div>
                     </div>
 
-                    {/* DAMAGE TEXT */}
                     {floatingText.map(ft => (
                         <div key={ft.id} className="absolute z-[60] text-4xl font-black pointer-events-none text-center whitespace-nowrap" 
                              style={{top: '40%', left: '50%', transform:'translateX(-50%)', color: ft.color, textShadow:'2px 2px 0 #000', animation: 'float-up-fade 2s ease-out forwards'}}>
@@ -865,7 +740,7 @@
                         </div>
                     ))}
 
-                    {/* START SCREEN */}
+                    {/* MENUS (START, REWARD, SHOP, GAMEOVER) */}
                     {gameState === 'START' && (
                         <div className="absolute inset-0 z-50 bg-black/90 flex flex-col items-center justify-center p-4">
                             <h1 className="text-6xl font-black text-yellow-500 mb-8 game-font text-center drop-shadow-xl animate-pulse">PUZZLE<br/>HEROES</h1>
@@ -881,177 +756,62 @@
                         </div>
                     )}
                     
-                    {/* REWARD SCREEN */}
                     {gameState === 'REWARD' && (
                         <div className="absolute inset-0 z-50 bg-black/95 flex flex-col items-center justify-center p-6 text-center">
                             <h2 className="text-5xl font-black text-green-400 mb-4 game-font tracking-wide">VICTORY!</h2>
                             <div className="flex items-center gap-3 mb-6 bg-slate-800 p-4 rounded-xl border border-yellow-500/50">
                                 <span className="text-4xl">💰</span>
-                                <div className="text-left">
-                                    <div className="text-yellow-500 text-sm font-bold uppercase">Reward</div>
-                                    <div className="text-white text-3xl font-black game-font">+{formatNumber(currentReward)}</div>
-                                </div>
+                                <div className="text-left"><div className="text-yellow-500 text-sm font-bold uppercase">Reward</div><div className="text-white text-3xl font-black game-font">+{formatNumber(currentReward)}</div></div>
                             </div>
                             <div className="flex gap-4 w-full max-w-sm">
-                                <button onClick={() => setGameState('SHOP')} 
-                                        className="flex-1 py-4 bg-slate-700 rounded-xl font-bold text-white border-b-4 border-slate-900 active:border-b-0 active:translate-y-2">
-                                    SHOP 🛒
-                                </button>
-                                <button onClick={handleNextLevel} 
-                                        className="flex-[2] py-4 bg-yellow-500 rounded-xl font-black text-xl text-yellow-950 border-b-4 border-yellow-700 active:border-b-0 active:translate-y-2">
-                                    NEXT STAGE ▶
-                                </button>
+                                <button onClick={() => setGameState('SHOP')} className="flex-1 py-4 bg-slate-700 rounded-xl font-bold text-white border-b-4 border-slate-900 active:border-b-0 active:translate-y-2">SHOP 🛒</button>
+                                <button onClick={handleNextLevel} className="flex-[2] py-4 bg-yellow-500 rounded-xl font-black text-xl text-yellow-950 border-b-4 border-yellow-700 active:border-b-0 active:translate-y-2">NEXT STAGE ▶</button>
                             </div>
                         </div>
                     )}
 
-                    {/* GAME OVER SCREEN */}
                     {gameState === 'GAMEOVER' && (
                          <div className="absolute inset-0 z-50 bg-red-950/90 flex flex-col items-center justify-center p-6 text-center">
                             <h2 className="text-6xl font-black text-white mb-2 game-font">DEFEAT</h2>
                             <div className="text-white/70 mb-8 font-bold text-xl">Stage Reached: {level}</div>
-                            <button onClick={restartGame} 
-                                className="px-8 py-4 bg-white rounded-xl font-black text-2xl text-slate-900 shadow-lg">TRY AGAIN</button>
-                            <div className="mt-4 text-xs text-white/50">(Upgrade Stats & Items Permanen)</div>
+                            <button onClick={restartGame} className="px-8 py-4 bg-white rounded-xl font-black text-2xl text-slate-900 shadow-lg">TRY AGAIN</button>
                          </div>
                     )}
 
-                    {/* SHOP OVERLAY */}
                     {gameState === 'SHOP' && !showIAP && (
                         <div className="absolute inset-0 z-[60] bg-slate-900 flex flex-col p-4">
                             <div className="flex justify-between items-center mb-4">
                                 <h2 className="text-3xl text-yellow-400 font-black game-font">SHOP</h2>
                                 <button onClick={() => setGameState(level === 1 && enemy.hp === enemy.maxHp ? 'START' : 'REWARD')} className="text-white font-bold bg-slate-700 px-4 py-2 rounded">CLOSE ✖</button>
                             </div>
-                            
                             <div className="bg-slate-800 p-3 rounded-xl mb-4 flex justify-between items-center border border-yellow-600/50">
-                                <span className="text-gray-400 font-bold">YOUR COINS:</span>
-                                <span className="text-2xl text-yellow-400 font-black">💰 {formatNumber(totalCoins)}</span>
+                                <span className="text-gray-400 font-bold">YOUR COINS:</span><span className="text-2xl text-yellow-400 font-black">💰 {formatNumber(totalCoins)}</span>
                             </div>
-
-                            {/* TOMBOL TOP UP */}
-                            <button onClick={() => setShowIAP(true)} 
-                                    className="w-full py-3 mb-4 bg-gradient-to-r from-blue-600 to-blue-500 rounded-xl font-black text-white text-lg shadow-lg border-b-4 border-blue-800 active:border-b-0 active:translate-y-1 flex items-center justify-center gap-2">
-                                <span className="star-icon"></span> GET COINS (STARS)
-                            </button>
-
+                            <button onClick={() => setShowIAP(true)} className="w-full py-3 mb-4 bg-gradient-to-r from-blue-600 to-blue-500 rounded-xl font-black text-white text-lg shadow-lg border-b-4 border-blue-800 active:border-b-0 active:translate-y-1 flex items-center justify-center gap-2"><span className="star-icon"></span> GET COINS (STARS)</button>
                             <div className="flex-1 overflow-y-auto space-y-4 pr-1 pb-10">
-                                {/* UPGRADES */}
                                 <div className="space-y-2">
                                     <h3 className="text-white/50 text-sm font-bold uppercase tracking-wider">Permanent Upgrades</h3>
-                                    <div className="bg-slate-800 p-3 rounded-xl flex justify-between items-center">
-                                        <div>
-                                            <div className="text-white font-bold text-lg">⚔️ Attack UP (+2)</div>
-                                            <div className="text-xs text-gray-400">Current: {hero.atk}</div>
-                                        </div>
-                                        <button onClick={() => buyItem('atk', getUpgradePrice('atk'))} disabled={totalCoins < getUpgradePrice('atk')}
-                                                className={`px-4 py-2 rounded-lg font-bold border-b-4 ${totalCoins >= getUpgradePrice('atk') ? 'bg-blue-600 border-blue-800 text-white active:border-b-0 active:translate-y-1' : 'bg-slate-600 border-slate-700 text-gray-400'}`}>
-                                            💰{formatNumber(getUpgradePrice('atk'))}
-                                        </button>
-                                    </div>
-                                    <div className="bg-slate-800 p-3 rounded-xl flex justify-between items-center">
-                                        <div>
-                                            <div className="text-white font-bold text-lg">❤️ HP UP (+10)</div>
-                                            <div className="text-xs text-gray-400">Current: {hero.maxHp}</div>
-                                        </div>
-                                        <button onClick={() => buyItem('hp', getUpgradePrice('hp'))} disabled={totalCoins < getUpgradePrice('hp')}
-                                                className={`px-4 py-2 rounded-lg font-bold border-b-4 ${totalCoins >= getUpgradePrice('hp') ? 'bg-blue-600 border-blue-800 text-white active:border-b-0 active:translate-y-1' : 'bg-slate-600 border-slate-700 text-gray-400'}`}>
-                                            💰{formatNumber(getUpgradePrice('hp'))}
-                                        </button>
-                                    </div>
+                                    <div className="bg-slate-800 p-3 rounded-xl flex justify-between items-center"><div><div className="text-white font-bold text-lg">⚔️ Attack UP (+2)</div><div className="text-xs text-gray-400">Current: {hero.atk}</div></div><button onClick={() => buyItem('atk', getUpgradePrice('atk'))} disabled={totalCoins < getUpgradePrice('atk')} className={`px-4 py-2 rounded-lg font-bold border-b-4 ${totalCoins >= getUpgradePrice('atk') ? 'bg-blue-600 border-blue-800 text-white active:border-b-0 active:translate-y-1' : 'bg-slate-600 border-slate-700 text-gray-400'}`}>💰{formatNumber(getUpgradePrice('atk'))}</button></div>
+                                    <div className="bg-slate-800 p-3 rounded-xl flex justify-between items-center"><div><div className="text-white font-bold text-lg">❤️ HP UP (+10)</div><div className="text-xs text-gray-400">Current: {hero.maxHp}</div></div><button onClick={() => buyItem('hp', getUpgradePrice('hp'))} disabled={totalCoins < getUpgradePrice('hp')} className={`px-4 py-2 rounded-lg font-bold border-b-4 ${totalCoins >= getUpgradePrice('hp') ? 'bg-blue-600 border-blue-800 text-white active:border-b-0 active:translate-y-1' : 'bg-slate-600 border-slate-700 text-gray-400'}`}>💰{formatNumber(getUpgradePrice('hp'))}</button></div>
                                 </div>
-
-                                {/* ITEMS */}
                                 <div className="space-y-2">
                                     <h3 className="text-white/50 text-sm font-bold uppercase tracking-wider">Battle Items</h3>
-                                    <div className="bg-slate-800 p-3 rounded-xl flex justify-between items-center">
-                                        <div>
-                                            <div className="text-white font-bold text-lg">🧪 Potion</div>
-                                            <div className="text-xs text-gray-400">Heal 30% HP. Owned: {inventory.potion}</div>
-                                        </div>
-                                        <button onClick={() => buyItem('potion', 50)} disabled={totalCoins < 50}
-                                                className={`px-4 py-2 rounded-lg font-bold border-b-4 ${totalCoins >= 50 ? 'bg-green-600 border-green-800 text-white active:border-b-0 active:translate-y-1' : 'bg-slate-600 border-slate-700 text-gray-400'}`}>
-                                            💰50
-                                        </button>
-                                    </div>
-                                    <div className="bg-slate-800 p-3 rounded-xl flex justify-between items-center">
-                                        <div>
-                                            <div className="text-white font-bold text-lg">💣 Bomb</div>
-                                            <div className="text-xs text-gray-400">Destroy 3x3 Area. Owned: {inventory.bomb}</div>
-                                        </div>
-                                        <button onClick={() => buyItem('bomb', 100)} disabled={totalCoins < 100}
-                                                className={`px-4 py-2 rounded-lg font-bold border-b-4 ${totalCoins >= 100 ? 'bg-orange-600 border-orange-800 text-white active:border-b-0 active:translate-y-1' : 'bg-slate-600 border-slate-700 text-gray-400'}`}>
-                                            💰100
-                                        </button>
-                                    </div>
-                                    <div className="bg-slate-800 p-3 rounded-xl flex justify-between items-center">
-                                        <div>
-                                            <div className="text-white font-bold text-lg">🔄 Shuffle</div>
-                                            <div className="text-xs text-gray-400">Reset Board. Owned: {inventory.shuffle}</div>
-                                        </div>
-                                        <button onClick={() => buyItem('shuffle', 30)} disabled={totalCoins < 30}
-                                                className={`px-4 py-2 rounded-lg font-bold border-b-4 ${totalCoins >= 30 ? 'bg-purple-600 border-purple-800 text-white active:border-b-0 active:translate-y-1' : 'bg-slate-600 border-slate-700 text-gray-400'}`}>
-                                            💰30
-                                        </button>
-                                    </div>
+                                    <div className="bg-slate-800 p-3 rounded-xl flex justify-between items-center"><div><div className="text-white font-bold text-lg">🧪 Potion</div><div className="text-xs text-gray-400">Owned: {inventory.potion}</div></div><button onClick={() => buyItem('potion', 50)} disabled={totalCoins < 50} className={`px-4 py-2 rounded-lg font-bold border-b-4 ${totalCoins >= 50 ? 'bg-green-600 border-green-800 text-white active:border-b-0 active:translate-y-1' : 'bg-slate-600 border-slate-700 text-gray-400'}`}>💰50</button></div>
+                                    <div className="bg-slate-800 p-3 rounded-xl flex justify-between items-center"><div><div className="text-white font-bold text-lg">💣 Bomb</div><div className="text-xs text-gray-400">Owned: {inventory.bomb}</div></div><button onClick={() => buyItem('bomb', 100)} disabled={totalCoins < 100} className={`px-4 py-2 rounded-lg font-bold border-b-4 ${totalCoins >= 100 ? 'bg-orange-600 border-orange-800 text-white active:border-b-0 active:translate-y-1' : 'bg-slate-600 border-slate-700 text-gray-400'}`}>💰100</button></div>
+                                    <div className="bg-slate-800 p-3 rounded-xl flex justify-between items-center"><div><div className="text-white font-bold text-lg">🔄 Shuffle</div><div className="text-xs text-gray-400">Owned: {inventory.shuffle}</div></div><button onClick={() => buyItem('shuffle', 30)} disabled={totalCoins < 30} className={`px-4 py-2 rounded-lg font-bold border-b-4 ${totalCoins >= 30 ? 'bg-purple-600 border-purple-800 text-white active:border-b-0 active:translate-y-1' : 'bg-slate-600 border-slate-700 text-gray-400'}`}>💰30</button></div>
                                 </div>
                             </div>
                         </div>
                     )}
 
-                    {/* TOP UP MODAL (STARS SIMULATION) */}
                     {showIAP && (
                          <div className="absolute inset-0 z-[70] bg-black/95 flex flex-col p-6 items-center justify-center">
                              <h2 className="text-3xl text-white font-black mb-6 game-font">BUY COINS</h2>
-                             
                              <div className="w-full max-w-sm space-y-4">
-                                 {/* Package 1 */}
-                                 <div onClick={() => handleStarsPurchase(1000, 50)} 
-                                      className="iap-card p-4 rounded-xl flex justify-between items-center cursor-pointer active:scale-95 transition-transform bg-slate-800 border-2 border-slate-600">
-                                      <div className="flex items-center gap-3">
-                                          <div className="text-4xl">💰</div>
-                                          <div>
-                                              <div className="text-white font-black text-xl">1,000 Coins</div>
-                                              <div className="text-white/50 text-xs">Starter Pack</div>
-                                          </div>
-                                      </div>
-                                      <div className="bg-blue-600 text-white px-3 py-1 rounded-lg font-bold flex items-center gap-1">
-                                         <span className="star-icon w-4 h-4"></span> 50
-                                      </div>
-                                 </div>
-
-                                 {/* Package 2 (Popular) */}
-                                 <div onClick={() => handleStarsPurchase(5000, 200)} 
-                                      className="iap-card iap-popular p-4 rounded-xl flex justify-between items-center cursor-pointer active:scale-95 transition-transform bg-slate-800 border-2 border-yellow-600 relative">
-                                      <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-yellow-500 text-yellow-900 text-[10px] px-2 py-0.5 rounded-full font-bold">BEST VALUE</span>
-                                      <div className="flex items-center gap-3">
-                                          <div className="text-4xl">💎</div>
-                                          <div>
-                                              <div className="text-white font-black text-xl">5,000 Coins</div>
-                                              <div className="text-white/50 text-xs">Hero Bundle</div>
-                                          </div>
-                                      </div>
-                                      <div className="bg-blue-600 text-white px-3 py-1 rounded-lg font-bold flex items-center gap-1">
-                                         <span className="star-icon w-4 h-4"></span> 200
-                                      </div>
-                                 </div>
-
-                                 {/* Package 3 */}
-                                 <div onClick={() => handleStarsPurchase(15000, 500)} 
-                                      className="iap-card p-4 rounded-xl flex justify-between items-center cursor-pointer active:scale-95 transition-transform bg-slate-800 border-2 border-slate-600">
-                                      <div className="flex items-center gap-3">
-                                          <div className="text-4xl">👑</div>
-                                          <div>
-                                              <div className="text-white font-black text-xl">15,000 Coins</div>
-                                              <div className="text-white/50 text-xs">King's Treasury</div>
-                                          </div>
-                                      </div>
-                                      <div className="bg-blue-600 text-white px-3 py-1 rounded-lg font-bold flex items-center gap-1">
-                                         <span className="star-icon w-4 h-4"></span> 500
-                                      </div>
-                                 </div>
+                                 <div onClick={() => handleStarsPurchase(1000, 50)} className="iap-card p-4 rounded-xl flex justify-between items-center cursor-pointer active:scale-95 transition-transform bg-slate-800 border-2 border-slate-600"><div className="flex items-center gap-3"><div className="text-4xl">💰</div><div><div className="text-white font-black text-xl">1,000 Coins</div></div></div><div className="bg-blue-600 text-white px-3 py-1 rounded-lg font-bold flex items-center gap-1"><span className="star-icon w-4 h-4"></span> 50</div></div>
+                                 <div onClick={() => handleStarsPurchase(5000, 200)} className="iap-card p-4 rounded-xl flex justify-between items-center cursor-pointer active:scale-95 transition-transform bg-slate-800 border-2 border-yellow-600"><div className="flex items-center gap-3"><div className="text-4xl">💎</div><div><div className="text-white font-black text-xl">5,000 Coins</div></div></div><div className="bg-blue-600 text-white px-3 py-1 rounded-lg font-bold flex items-center gap-1"><span className="star-icon w-4 h-4"></span> 200</div></div>
+                                 <div onClick={() => handleStarsPurchase(15000, 500)} className="iap-card p-4 rounded-xl flex justify-between items-center cursor-pointer active:scale-95 transition-transform bg-slate-800 border-2 border-slate-600"><div className="flex items-center gap-3"><div className="text-4xl">👑</div><div><div className="text-white font-black text-xl">15,000 Coins</div></div></div><div className="bg-blue-600 text-white px-3 py-1 rounded-lg font-bold flex items-center gap-1"><span className="star-icon w-4 h-4"></span> 500</div></div>
                              </div>
-
                              <button onClick={() => setShowIAP(false)} className="mt-8 text-white/70 font-bold border border-white/30 px-6 py-2 rounded-lg hover:bg-white/10">CANCEL</button>
                          </div>
                     )}
@@ -1064,3 +824,4 @@
     </script>
 </body>
 </html>
+
