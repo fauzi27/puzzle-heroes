@@ -102,7 +102,6 @@
           gem_shield: "https://res.cloudinary.com/dsutaioqw/image/upload/v1770120267/gem_shield_bdizjp.png",
         };
 
-        // PERBAIKAN DI SINI: Menambahkan const sebelum BOARD_COLS
         const BOARD_ROWS = 7; 
         const BOARD_COLS = 6;
         
@@ -231,7 +230,6 @@
                 }
             }, [isCloudLoaded, level, upgradeLevels]);
 
-            // HELPER FUNCTIONS (Hoisted)
             function createValidBoard() {
                 let newBoard, isValid = false;
                 while (!isValid) {
@@ -387,6 +385,29 @@
                 } else tg.HapticFeedback.notificationOccurred('error');
             };
 
+            // --- FUNGSI IAP / STARS (DIKEMBALIKAN LAGI) ---
+            const handleStarsPurchase = (coins, stars) => {
+                if (!tg.initDataUnsafe?.user) {
+                    alert("[MODE BROWSER] Simulasi: Koin bertambah " + coins);
+                    setTotalCoins(prev => prev + coins);
+                    return;
+                }
+                const invoiceLink = "https://t.me/$D8iuOsDkIFQgBAAAUoNG2nbqTHI"; 
+                if (!invoiceLink || invoiceLink.includes("PASTE_LINK")) { tg.showAlert("⚠️ Developer lupa pasang Link Invoice!"); return; }
+                tg.openInvoice(invoiceLink, (status) => {
+                    if (status === 'paid') {
+                        tg.MainButton.showProgress();
+                        setTimeout(() => {
+                            tg.MainButton.hideProgress();
+                            setTotalCoins(prev => prev + coins);
+                            if(window.saveCloudData) window.saveCloudData(activeUserId, { totalCoins: totalCoins + coins, lastUpdated: Date.now() });
+                            tg.showAlert(`✅ PEMBAYARAN SUKSES!\n+${formatNumber(coins)} Koin Diterima.`);
+                            setShowIAP(false); 
+                        }, 1000);
+                    } else if (status === 'failed') { tg.showAlert("Pembayaran Gagal."); }
+                });
+            };
+
             const handleProfile = () => {
                 if((tg.platform && tg.platform !== 'unknown')) {
                      if(user) tg.showConfirm(`Logout ${user.displayName}?`, (ok) => { if(ok) window.logoutGoogle(); });
@@ -484,6 +505,7 @@
                         <div className="absolute inset-0 z-[60] bg-slate-900 flex flex-col p-4 anim-pop-in">
                             <div className="flex justify-between items-center mb-6"><h2 className="text-3xl text-yellow-400 font-black">SHOP</h2><button onClick={()=>setGameState(level===1 && enemy.hp===100 ? 'START' : 'REWARD')} className="bg-red-500 px-3 py-1 rounded text-white font-bold">CLOSE</button></div>
                             <div className="bg-slate-800 p-4 rounded-xl mb-4 border border-yellow-500 flex justify-between"><span className="text-gray-300">COINS:</span><span className="text-yellow-400 font-black text-xl">💰 {formatNumber(totalCoins)}</span></div>
+                            <button onClick={()=>setShowIAP(true)} className="w-full py-3 mb-4 bg-gradient-to-r from-blue-600 to-blue-500 rounded-xl font-black text-white text-lg shadow-lg border-b-4 border-blue-800 active:border-b-0 active:translate-y-1 flex items-center justify-center gap-2"><span className="star-icon"></span> GET COINS (STARS)</button>
                             
                             <div className="flex-1 overflow-y-auto space-y-3 pb-10">
                                 <div className="text-xs text-white/50 font-bold uppercase tracking-wider mb-1">UPGRADES (Lvl {upgradeLevels.atk})</div>
@@ -509,6 +531,19 @@
                         </div>
                     )}
                     
+                    {/* IAP MODAL (DIKEMBALIKAN LAGI) */}
+                    {showIAP && (
+                         <div className="absolute inset-0 z-[70] bg-black/95 flex flex-col p-6 items-center justify-center anim-pop-in">
+                             <h2 className="text-3xl text-white font-black mb-6 game-font">BUY COINS</h2>
+                             <div className="w-full max-w-sm space-y-4">
+                                 <div onClick={() => handleStarsPurchase(1000, 50)} className="bg-slate-800 border-2 border-slate-600 p-4 rounded-xl flex justify-between items-center cursor-pointer active:scale-95 transition-transform"><div className="flex items-center gap-3"><div className="text-4xl">💰</div><div><div className="text-white font-black text-xl">1,000 Coins</div></div></div><div className="bg-blue-600 text-white px-3 py-1 rounded-lg font-bold flex items-center gap-1"><span className="star-icon w-4 h-4"></span> 50</div></div>
+                                 <div onClick={() => handleStarsPurchase(5000, 200)} className="bg-slate-800 border-2 border-yellow-600 p-4 rounded-xl flex justify-between items-center cursor-pointer active:scale-95 transition-transform"><div className="flex items-center gap-3"><div className="text-4xl">💎</div><div><div className="text-white font-black text-xl">5,000 Coins</div></div></div><div className="bg-blue-600 text-white px-3 py-1 rounded-lg font-bold flex items-center gap-1"><span className="star-icon w-4 h-4"></span> 200</div></div>
+                                 <div onClick={() => handleStarsPurchase(15000, 500)} className="bg-slate-800 border-2 border-slate-600 p-4 rounded-xl flex justify-between items-center cursor-pointer active:scale-95 transition-transform"><div className="flex items-center gap-3"><div className="text-4xl">👑</div><div><div className="text-white font-black text-xl">15,000 Coins</div></div></div><div className="bg-blue-600 text-white px-3 py-1 rounded-lg font-bold flex items-center gap-1"><span className="star-icon w-4 h-4"></span> 500</div></div>
+                             </div>
+                             <button onClick={() => setShowIAP(false)} className="mt-8 text-white/70 font-bold border border-white/30 px-6 py-2 rounded-lg hover:bg-white/10">CANCEL</button>
+                         </div>
+                    )}
+
                     {/* CUSTOM PROFILE MODAL */}
                     {showProfileModal && (
                         <div className="absolute inset-0 z-[70] bg-black/90 flex flex-col items-center justify-center p-6 anim-pop-in">
