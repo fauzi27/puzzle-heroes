@@ -1,11 +1,18 @@
 function handleNextLevel() {
-    // Reset game state properly
-    resetGameState();
+    // Reset hero HP to max
+    hero.hp = hero.maxHp;
 
-    // Clean up the board and animations
-    clearBoard();
-    stopAnimations();
+    // Create a fresh new enemy with correct stats
+    enemy = createNewEnemy();
 
-    // Proceed to the next level
-    loadNextLevel();
+    // Generate a new board
+    generateNewBoard();
+
+    // Clear all animations, particles, floating text, and punch effects
+    clearAllAnimations();
+    clearParticles();
+    clearFloatingText();
+    clearPunchEffects();
+
+    // Additional code to initialize the next level can be added here
 }
