@@ -3,10 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Puzzle Heroes RPG + Firebase Auth</title>
+    <title>Puzzle Heroes RPG - Improved</title>
     
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -23,7 +22,6 @@
             overflow: hidden; 
             touch-action: none; 
             user-select: none; 
-            -webkit-user-select: none; 
         }
         .game-font { text-shadow: 2px 2px 0px #000; letter-spacing: 1px; }
         
@@ -38,18 +36,12 @@
         @keyframes float-up-fade { 0% { transform: translate(-50%, 0) scale(1); opacity: 1; } 80% { opacity: 1; } 100% { transform: translate(-50%, -60px) scale(1.2); opacity: 0; } }
         @keyframes crumble { 0% { transform: scale(1) translateY(0) rotate(0deg); opacity: 1; filter: brightness(1.5); } 100% { transform: scale(0.2) translateY(20px) rotate(45deg); opacity: 0; } }
         @keyframes bomb-flash { 0% { background-color: rgba(255,255,255,0); } 50% { background-color: rgba(255,255,255,0.8); } 100% { background-color: rgba(255,255,255,0); } }
+        @keyframes drop-in { 0% { transform: translateY(-100%); opacity: 0; } 60% { transform: translateY(5%); opacity: 1; } 100% { transform: translateY(0); opacity: 1; } }
+        @keyframes pulse-match { 0% { transform: scale(1); } 50% { transform: scale(1.15); } 100% { transform: scale(1); } }
+        @keyframes chain-combo { 0% { opacity: 0; transform: scale(0.5); } 50% { opacity: 1; transform: scale(1.2); } 100% { opacity: 0; transform: scale(1); } }
 
-        /* --- ANIMASI BARU (GRAVITASI & POPUP) --- */
-        @keyframes drop-in {
-            0% { transform: translateY(-100%); opacity: 0; }
-            60% { transform: translateY(5%); opacity: 1; }
-            100% { transform: translateY(0); opacity: 1; }
-        }
-        .anim-fall { 
-            animation: drop-in 0.4s cubic-bezier(0.25, 1, 0.5, 1) backwards; 
-        }
+        .anim-fall { animation: drop-in 0.4s cubic-bezier(0.25, 1, 0.5, 1) backwards; }
         .anim-pop-in { animation: breathe 0.3s ease-out forwards; }
-
         .anim-float { animation: float 4s ease-in-out infinite; }
         .anim-breathe { animation: breathe 3s ease-in-out infinite; }
         .anim-sway-hero { animation: sway-hero 2s ease-in-out infinite; }
@@ -59,6 +51,8 @@
         .anim-particle { animation: particle-pop 0.6s ease-out forwards; pointer-events: none; }
         .anim-crumble { animation: crumble 0.4s ease-in forwards; pointer-events: none; }
         .anim-bomb { animation: bomb-flash 0.5s ease-out; }
+        .anim-pulse { animation: pulse-match 0.4s ease-out; }
+        .anim-chain { animation: chain-combo 0.6s ease-out; }
         
         .css-board-frame {
             background: rgba(15, 23, 42, 0.8);
@@ -95,6 +89,24 @@
         }
 
         img { -webkit-user-drag: none; user-select: none; pointer-events: none; }
+        
+        /* COMBO INDICATOR */
+        .combo-badge {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, #ff006e, #fb5607, #ffbe0b);
+            padding: 12px 24px;
+            border-radius: 50px;
+            color: white;
+            font-weight: 900;
+            font-size: 24px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            z-index: 200;
+            border: 3px solid white;
+            box-shadow: 0 0 20px rgba(255, 0, 110, 0.8);
+        }
     </style>
 
     <script type="module">
@@ -117,7 +129,6 @@
         const auth = getAuth(app);
         const provider = new GoogleAuthProvider();
 
-        // --- AUTH FUNCTIONS ---
         window.loginGoogle = async () => {
             try {
                 const result = await signInWithPopup(auth, provider);
@@ -142,7 +153,6 @@
             });
         };
 
-        // --- DATABASE FUNCTIONS ---
         window.loadCloudData = async (userId) => {
             if (!userId) return null;
             try {
@@ -167,7 +177,7 @@
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
-        // --- ASSETS ---
+        // ============ ASSETS ============
         const ASSETS = {
           btn_play: "https://res.cloudinary.com/dsutaioqw/image/upload/v1770120268/btn_play_rcewal.png",
           bg_main: "https://res.cloudinary.com/dsutaioqw/image/upload/v1/puzzle%20hero/bg_main.png",
@@ -184,6 +194,8 @@
         const BOARD_ROWS = 7;
         const BOARD_COLS = 6;
         const GEM_TYPES = ['red', 'blue', 'green', 'yellow', 'purple'];
+        
+        // ============ GEM CONFIG DENGAN MULTIPLIER ============
         const GEM_CONFIG = {
           red:    { assetKey: 'gem_fire',      effect: 'dmg', val: 1.0 },
           blue:   { assetKey: 'gem_water',     effect: 'dmg', val: 1.0 },
@@ -212,12 +224,122 @@
             );
         };
 
-        // ==========================================
-        //  MAIN GAME COMPONENT
-        // ==========================================
+        // ============ IMPROVED MATCH DETECTION ============
+        /**
+         * Enhanced checkMatches dengan support untuk:
+         * - Match-3, Match-4, Match-5+
+         * - Horizontal & Vertical matches
+         * - 2x2 Square detection
+         * - Combo multiplier tracking
+         */
+        function checkMatches(boardToCheck) {
+            const matched = new Set();
+            const matchInfo = {}; // Track match size untuk combo bonus
+            
+            // --- HORIZONTAL MATCHES ---
+            for (let r = 0; r < BOARD_ROWS; r++) {
+                for (let c = 0; c < BOARD_COLS; c++) {
+                    const type = boardToCheck[r][c];
+                    if (!type) continue;
+                    
+                    // Count consecutive gems ke kanan
+                    let matchLength = 1;
+                    while (c + matchLength < BOARD_COLS && boardToCheck[r][c + matchLength] === type) {
+                        matchLength++;
+                    }
+                    
+                    // Jika match >= 3, tambahkan ke set
+                    if (matchLength >= 3) {
+                        for (let i = 0; i < matchLength; i++) {
+                            const key = `${r},${c + i}`;
+                            matched.add(key);
+                            matchInfo[key] = { size: matchLength, direction: 'h' };
+                        }
+                    }
+                }
+            }
+            
+            // --- VERTICAL MATCHES ---
+            for (let c = 0; c < BOARD_COLS; c++) {
+                for (let r = 0; r < BOARD_ROWS; r++) {
+                    const type = boardToCheck[r][c];
+                    if (!type) continue;
+                    
+                    // Count consecutive gems ke bawah
+                    let matchLength = 1;
+                    while (r + matchLength < BOARD_ROWS && boardToCheck[r + matchLength][c] === type) {
+                        matchLength++;
+                    }
+                    
+                    // Jika match >= 3, tambahkan ke set
+                    if (matchLength >= 3) {
+                        for (let i = 0; i < matchLength; i++) {
+                            const key = `${r + i},${c}`;
+                            matched.add(key);
+                            matchInfo[key] = { size: matchLength, direction: 'v' };
+                        }
+                    }
+                }
+            }
+            
+            // --- 2x2 SQUARE DETECTION (BONUS FEATURE) ---
+            // Hanya deteksi jika belum match dari horizontal/vertical
+            for (let r = 0; r < BOARD_ROWS - 1; r++) {
+                for (let c = 0; c < BOARD_COLS - 1; c++) {
+                    const type = boardToCheck[r][c];
+                    if (type && 
+                        boardToCheck[r][c+1] === type && 
+                        boardToCheck[r+1][c] === type && 
+                        boardToCheck[r+1][c+1] === type) {
+                        
+                        // Mark semua 4 gem
+                        [`${r},${c}`, `${r},${c+1}`, `${r+1},${c}`, `${r+1},${c+1}`].forEach(key => {
+                            matched.add(key);
+                            matchInfo[key] = { size: 4, special: 'square' };
+                        });
+                    }
+                }
+            }
+            
+            // Convert ke array dengan match info
+            const result = Array.from(matched).map(str => { 
+                const [r, c] = str.split(',').map(Number);
+                return { r, c, ...matchInfo[str] };
+            });
+            
+            return result;
+        }
 
+        /**
+         * Kalkulasi damage/effect dengan multiplier untuk match size
+         * Match-3 = 1.0x
+         * Match-4 = 1.5x
+         * Match-5+ = 2.0x
+         * Special Square = 2.5x
+         */
+        function calculateMatchMultiplier(matches) {
+            // Find largest match group
+            let maxSize = 0;
+            let hasSquare = false;
+            
+            matches.forEach(m => {
+                if (m.special === 'square') hasSquare = true;
+                if (m.size) maxSize = Math.max(maxSize, m.size);
+            });
+            
+            if (hasSquare) return 2.5;
+            if (maxSize >= 5) return 2.0;
+            if (maxSize === 4) return 1.5;
+            return 1.0;
+        }
+
+        // ============ MAIN GAME COMPONENT ============
         function GameApp() {
             const tg = window.Telegram.WebApp;
+
+            // --- STATE UNTUK COMBO SYSTEM ---
+            const [comboCount, setComboCount] = useState(0);
+            const [comboDisplay, setComboDisplay] = useState(null);
 
             // --- 1. IDENTITAS & AUTHENTICATION ---
             const [user, setUser] = useState(null); 
@@ -255,12 +377,11 @@
             const [inventory, setInventory] = useState(defaultStats.inventory);
             const [isCloudLoaded, setIsCloudLoaded] = useState(false);
 
-            // STATE BARU UNTUK UI & ANIMASI
             const [showIAP, setShowIAP] = useState(false); 
-            const [showProfileModal, setShowProfileModal] = useState(false); // Pop-up Custom
-            const [isFalling, setIsFalling] = useState(false); // Animasi Gravitasi
+            const [showProfileModal, setShowProfileModal] = useState(false);
+            const [isFalling, setIsFalling] = useState(false);
 
-            // --- 3. LOGIKA AUTH LISTENER & LOAD DATA ---
+            // --- 3. LOGIKA AUTH & LOAD DATA ---
             useEffect(() => {
                 if (!isTelegram && window.authListener) {
                     window.authListener((googleUser) => {
@@ -392,31 +513,6 @@
                 return newBoard;
             }
 
-            function checkMatches(boardToCheck) {
-                const matched = new Set();
-                for (let r = 0; r < BOARD_ROWS; r++) {
-                    for (let c = 0; c < BOARD_COLS - 2; c++) {
-                        const type = boardToCheck[r][c];
-                        if (type && boardToCheck[r][c+1] === type && boardToCheck[r][c+2] === type) { matched.add(`${r},${c}`); matched.add(`${r},${c+1}`); matched.add(`${r},${c+2}`); }
-                    }
-                }
-                for (let r = 0; r < BOARD_ROWS - 2; r++) {
-                    for (let c = 0; c < BOARD_COLS; c++) {
-                        const type = boardToCheck[r][c];
-                        if (type && boardToCheck[r+1][c] === type && boardToCheck[r+2][c] === type) { matched.add(`${r},${c}`); matched.add(`${r+1},${c}`); matched.add(`${r+2},${c}`); }
-                    }
-                }
-                for (let r = 0; r < BOARD_ROWS - 1; r++) {
-                    for (let c = 0; c < BOARD_COLS - 1; c++) {
-                        const type = boardToCheck[r][c];
-                        if (type && boardToCheck[r][c+1] === type && boardToCheck[r+1][c] === type && boardToCheck[r+1][c+1] === type) {
-                            matched.add(`${r},${c}`); matched.add(`${r},${c+1}`); matched.add(`${r+1},${c}`); matched.add(`${r+1},${c+1}`);
-                        }
-                    }
-                }
-                return Array.from(matched).map(str => { const [r, c] = str.split(',').map(Number); return { r, c }; });
-            }
-
             const spawnParticles = (r, c, type) => {
                 const newPart = { id: Date.now() + Math.random(), top: `${(r*100/BOARD_ROWS)+7}%`, left: `${(c*100/BOARD_COLS)+8}%`, type };
                 setParticles(p => [...p, newPart]);
@@ -495,7 +591,7 @@
                              for(let i=0; i<empty; i++) activeBoard[i][c] = GEM_TYPES[Math.floor(Math.random() * GEM_TYPES.length)];
                          }
                          setBoard(activeBoard);
-                         if (checkMatches(activeBoard).length > 0) setTimeout(() => resolveBoard(activeBoard), 300);
+                         if (checkMatches(activeBoard).length > 0) setTimeout(() => resolveBoardWithCombo(activeBoard, 1), 300);
                          else setIsProcessing(false);
                     }, 600);
                 }
@@ -510,60 +606,98 @@
                     tg.HapticFeedback.impactOccurred('medium');
                 } else tg.HapticFeedback.notificationOccurred('error');
             };
-            const resolveBoard = async (currentBoard) => {
+
+            // ============ IMPROVED RESOLVE BOARD DENGAN COMBO SYSTEM ============
+            const resolveBoardWithCombo = async (currentBoard, comboLevel = 1) => {
                 let activeBoard = currentBoard.map(row => [...row]); 
-                let hasMatches = true;
-                let loopCount = 0;
-                while (hasMatches && loopCount < 10) {
-                    const matches = checkMatches(activeBoard);
-                    if (matches.length > 0) {
-                        let totalDmg = 0, totalHeal = 0, totalShield = 0;
-                        setCrushingCells(matches.map(m => `${m.r},${m.c}`));
-                        matches.forEach(m => {
-                            const type = activeBoard[m.r][m.c];
-                            if (type) {
-                                spawnParticles(m.r, m.c, type);
-                                const conf = GEM_CONFIG[type];
-                                if (conf.effect === 'dmg') totalDmg += hero.atk * conf.val;
-                                if (conf.effect === 'heal') totalHeal += (hero.maxHp * 0.05) * conf.val; 
-                                if (conf.effect === 'shd') totalShield += 10 * conf.val; 
-                            }
-                        });
+                const matches = checkMatches(activeBoard);
 
-                        if (totalDmg > 0) { setEnemy(prev => ({...prev, hp: Math.max(0, prev.hp - Math.floor(totalDmg))})); triggerPunch('enemy'); setEnemyAnim('anim-hit'); setTimeout(() => setEnemyAnim(''), 300); spawnText(`-${Math.floor(totalDmg)}`, '#ef4444'); tg.HapticFeedback.impactOccurred('light'); }
-                        if (totalHeal > 0) { setHero(prev => ({...prev, hp: Math.min(prev.maxHp, prev.hp + Math.floor(totalHeal))})); spawnText(`+${Math.floor(totalHeal)}`, '#22c55e'); }
-                        if (totalShield > 0) { setHero(prev => ({...prev, shield: prev.shield + Math.floor(totalShield)})); spawnText(`+${Math.floor(totalShield)}`, '#a855f7'); }
+                if (matches.length > 0) {
+                    let totalDmg = 0, totalHeal = 0, totalShield = 0;
+                    const multiplier = calculateMatchMultiplier(matches);
+                    
+                    // Display combo
+                    if (comboLevel > 1) {
+                        setComboDisplay({ level: comboLevel, multiplier });
+                        setTimeout(() => setComboDisplay(null), 1000);
+                    }
 
-                        await new Promise(r => setTimeout(r, 400));
-                        setCrushingCells([]); 
-                        matches.forEach(m => activeBoard[m.r][m.c] = null);
-                        setBoard(activeBoard.map(row => [...row])); 
-                        
-                        await new Promise(r => setTimeout(r, 100)); // Delay sebelum jatuh
-
-                        // --- LOGIC RUNTUHAN & GENERATE BARU ---
-                        for(let c=0; c<BOARD_COLS; c++) {
-                             let empty = 0;
-                             for(let r=BOARD_ROWS-1; r>=0; r--) {
-                                 if(activeBoard[r][c] === null) empty++;
-                                 else if(empty > 0) { activeBoard[r+empty][c] = activeBoard[r][c]; activeBoard[r][c] = null; }
-                             }
-                             for(let i=0; i<empty; i++) activeBoard[i][c] = GEM_TYPES[Math.floor(Math.random() * GEM_TYPES.length)];
+                    setCrushingCells(matches.map(m => `${m.r},${m.c}`));
+                    matches.forEach(m => {
+                        const type = activeBoard[m.r][m.c];
+                        if (type) {
+                            spawnParticles(m.r, m.c, type);
+                            const conf = GEM_CONFIG[type];
+                            if (conf.effect === 'dmg') totalDmg += hero.atk * conf.val * multiplier;
+                            if (conf.effect === 'heal') totalHeal += (hero.maxHp * 0.05) * conf.val * multiplier; 
+                            if (conf.effect === 'shd') totalShield += 10 * conf.val * multiplier; 
                         }
+                    });
 
-                        // Trigger Animasi Jatuh
-                        setIsFalling(true); 
-                        setBoard(activeBoard.map(row => [...row])); 
-                        setTimeout(() => setIsFalling(false), 450); // Stop animasi
-                        
-                        await new Promise(r => setTimeout(r, 450)); // Tunggu visual selesai
-                        loopCount++;
-                    } else hasMatches = false;
+                    if (totalDmg > 0) { 
+                        const finalDmg = Math.floor(totalDmg);
+                        setEnemy(prev => ({...prev, hp: Math.max(0, prev.hp - finalDmg)})); 
+                        triggerPunch('enemy'); 
+                        setEnemyAnim('anim-hit'); 
+                        setTimeout(() => setEnemyAnim(''), 300); 
+                        spawnText(`-${finalDmg}`, '#ef4444'); 
+                        tg.HapticFeedback.impactOccurred('light'); 
+                    }
+                    if (totalHeal > 0) { 
+                        const finalHeal = Math.floor(totalHeal);
+                        setHero(prev => ({...prev, hp: Math.min(prev.maxHp, prev.hp + finalHeal)})); 
+                        spawnText(`+${finalHeal}`, '#22c55e'); 
+                    }
+                    if (totalShield > 0) { 
+                        const finalShield = Math.floor(totalShield);
+                        setHero(prev => ({...prev, shield: prev.shield + finalShield})); 
+                        spawnText(`+${finalShield}`, '#a855f7'); 
+                    }
+
+                    await new Promise(r => setTimeout(r, 400));
+                    setCrushingCells([]); 
+                    matches.forEach(m => activeBoard[m.r][m.c] = null);
+                    setBoard(activeBoard.map(row => [...row])); 
+                    
+                    await new Promise(r => setTimeout(r, 100));
+
+                    // --- GRAVITY & SPAWN BARU ---
+                    for(let c=0; c<BOARD_COLS; c++) {
+                         let empty = 0;
+                         for(let r=BOARD_ROWS-1; r>=0; r--) {
+                             if(activeBoard[r][c] === null) empty++;
+                             else if(empty > 0) { activeBoard[r+empty][c] = activeBoard[r][c]; activeBoard[r][c] = null; }
+                         }
+                         for(let i=0; i<empty; i++) activeBoard[i][c] = GEM_TYPES[Math.floor(Math.random() * GEM_TYPES.length)];
+                    }
+
+                    setIsFalling(true); 
+                    setBoard(activeBoard.map(row => [...row])); 
+                    setTimeout(() => setIsFalling(false), 450);
+                    
+                    await new Promise(r => setTimeout(r, 550)); // Tunggu gravity + cascade delay
+
+                    // --- CHECK UNTUK CHAIN REACTION ---
+                    const nextMatches = checkMatches(activeBoard);
+                    if (nextMatches.length > 0) {
+                        // COMBO!
+                        setComboCount(comboLevel + 1);
+                        await resolveBoardWithCombo(activeBoard, comboLevel + 1);
+                    } else {
+                        // Cascade selesai
+                        setComboCount(0);
+                        setIsProcessing(false);
+                        setTurn('enemy'); 
+                        setTurnBanner("GILIRAN MUSUH");
+                        setTimeout(() => setTurnBanner(''), 1500);
+                    }
+                } else {
+                    // Tidak ada match
+                    setIsProcessing(false);
+                    setTurn('enemy'); 
+                    setTurnBanner("GILIRAN MUSUH");
+                    setTimeout(() => setTurnBanner(''), 1500);
                 }
-                setIsProcessing(false);
-                setTurn('enemy'); 
-                setTurnBanner("GILIRAN MUSUH");
-                setTimeout(() => setTurnBanner(''), 1500);
             };
 
             useEffect(() => {
@@ -607,7 +741,11 @@
                      if (targetR >= 0 && targetR < BOARD_ROWS && targetC >= 0 && targetC < BOARD_COLS) {
                          const tempBoard = board.map(row => [...row]);
                          [tempBoard[dragState.r][dragState.c], tempBoard[targetR][targetC]] = [tempBoard[targetR][targetC], tempBoard[dragState.r][dragState.c]];
-                         if (checkMatches(tempBoard).length > 0) { setIsProcessing(true); setBoard(tempBoard); setTimeout(() => { resolveBoard(tempBoard); }, 200); } 
+                         if (checkMatches(tempBoard).length > 0) { 
+                             setIsProcessing(true); 
+                             setBoard(tempBoard); 
+                             setTimeout(() => { resolveBoardWithCombo(tempBoard, 1); }, 200); 
+                         } 
                      }
                 }
                 setDragState(null);
@@ -625,16 +763,17 @@
             const handleNextLevel = () => {
                 setTotalCoins(prev => prev + currentReward);
                 setLevel(prev => prev + 1);
+                setComboCount(0);
                 setGameState('BATTLE'); setTurnBanner('START!'); setTimeout(()=>setTurnBanner(''), 1500); setTurn('player'); setIsProcessing(false);
             };
 
             const restartGame = () => {
                 setLevel(1);
                 setInventory({potion:1, bomb:0, shuffle:1}); 
+                setComboCount(0);
                 setGameState('BATTLE');
             };
 
-            // --- MENU PROFIL BARU (CUSTOM MODAL) ---
             const handleProfile = () => {
                 const isRunningInTelegram = (tg.platform && tg.platform !== 'unknown');
                 if (isRunningInTelegram) {
@@ -680,6 +819,14 @@
                         <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/50 to-slate-900/90"></div>
                     </div>
 
+                    {/* COMBO INDICATOR */}
+                    {comboDisplay && (
+                        <div className="combo-badge anim-chain">
+                            {comboDisplay.level}x COMBO<br/>
+                            <span className="text-sm">×{comboDisplay.multiplier.toFixed(1)} DMG</span>
+                        </div>
+                    )}
+
                     {turnBanner && <div className="absolute top-40 w-full text-center z-50 text-4xl font-black text-white animate-pulse game-font drop-shadow-lg">{turnBanner}</div>}
                     
                     {/* HEADER */}
@@ -693,7 +840,6 @@
                             <span className="text-white/90 font-black text-xl tracking-[0.2em] drop-shadow-md game-font">STAGE {level}</span>
                         </div>
                         
-                        {/* USER INFO / PROFILE MENU */}
                         <div className="flex flex-col items-end cursor-pointer active:scale-95 transition-transform" onClick={handleProfile}>
                              <div className="text-[10px] text-yellow-500 font-bold tracking-wider">PLAYER</div>
                              <div className="text-sm font-bold text-white flex items-center gap-1">
@@ -732,8 +878,7 @@
                                         <div key={`${r}-${c}`} 
                                              onMouseDown={(e) => handleDragStart(e, r, c)}
                                              onTouchStart={(e) => handleDragStart(e, r, c)}
-                                             /* LOGIC ANIMASI RUNTUHAN DI SINI */
-                                             className={`relative w-full h-full flex items-center justify-center transition-transform active:scale-90 ${crushingCells.includes(`${r},${c}`) ? 'anim-crumble' : ''} ${isFalling ? 'anim-fall' : ''}`}
+                                             className={`relative w-full h-full flex items-center justify-center transition-transform active:scale-90 ${crushingCells.includes(`${r},${c}`) ? 'anim-crumble' : ''} ${isFalling ? 'anim-fall' : ''} ${type && !crushingCells.includes(`${r},${c}`) ? 'anim-pulse' : ''}`}
                                              style={isFalling ? { animationDelay: `${c * 40}ms` } : {}}>
                                              {type && <SmartImage assetKey={GEM_CONFIG[type].assetKey} className="drop-shadow-md" />}
                                         </div>
@@ -779,121 +924,4 @@
                     {/* MENUS (START, REWARD, SHOP, GAMEOVER) */}
                     {gameState === 'START' && (
                         <div className="absolute inset-0 z-50 bg-black/90 flex flex-col items-center justify-center p-4">
-                            <h1 className="text-6xl font-black text-yellow-500 mb-8 game-font text-center drop-shadow-xl animate-pulse">PUZZLE<br/>HEROES</h1>
-                            <div className="flex items-center justify-center gap-4 mb-8">
-                                <div className="w-24 h-24 anim-float"><SmartImage assetKey="hero" /></div>
-                                <div className="text-2xl font-black text-white italic">VS</div>
-                                <div className="w-24 h-24 anim-float" style={{animationDelay:'1s'}}><SmartImage assetKey="enemy_boss" /></div>
-                            </div>
-                            <button onClick={() => { setGameState('BATTLE'); setTurnBanner('START!'); setTimeout(()=>setTurnBanner(''), 1500); }} className="active:scale-95 transition-transform mb-4">
-                                <img src={ASSETS.btn_play} className="w-64 drop-shadow-lg" />
-                            </button>
-                            <button onClick={() => setGameState('SHOP')} className="px-6 py-2 bg-yellow-600 rounded-lg font-bold text-white border-b-4 border-yellow-800 active:border-b-0 active:translate-y-1">OPEN SHOP</button>
-                        </div>
-                    )}
-                    
-                    {gameState === 'REWARD' && (
-                        <div className="absolute inset-0 z-50 bg-black/95 flex flex-col items-center justify-center p-6 text-center">
-                            <h2 className="text-5xl font-black text-green-400 mb-4 game-font tracking-wide">VICTORY!</h2>
-                            <div className="flex items-center gap-3 mb-6 bg-slate-800 p-4 rounded-xl border border-yellow-500/50">
-                                <span className="text-4xl">💰</span>
-                                <div className="text-left"><div className="text-yellow-500 text-sm font-bold uppercase">Reward</div><div className="text-white text-3xl font-black game-font">+{formatNumber(currentReward)}</div></div>
-                            </div>
-                            <div className="flex gap-4 w-full max-w-sm">
-                                <button onClick={() => setGameState('SHOP')} className="flex-1 py-4 bg-slate-700 rounded-xl font-bold text-white border-b-4 border-slate-900 active:border-b-0 active:translate-y-2">SHOP 🛒</button>
-                                <button onClick={handleNextLevel} className="flex-[2] py-4 bg-yellow-500 rounded-xl font-black text-xl text-yellow-950 border-b-4 border-yellow-700 active:border-b-0 active:translate-y-2">NEXT STAGE ▶</button>
-                            </div>
-                        </div>
-                    )}
-
-                    {gameState === 'GAMEOVER' && (
-                         <div className="absolute inset-0 z-50 bg-red-950/90 flex flex-col items-center justify-center p-6 text-center">
-                            <h2 className="text-6xl font-black text-white mb-2 game-font">DEFEAT</h2>
-                            <div className="text-white/70 mb-8 font-bold text-xl">Stage Reached: {level}</div>
-                            <button onClick={restartGame} className="px-8 py-4 bg-white rounded-xl font-black text-2xl text-slate-900 shadow-lg">TRY AGAIN</button>
-                         </div>
-                    )}
-
-                    {gameState === 'SHOP' && !showIAP && (
-                        <div className="absolute inset-0 z-[60] bg-slate-900 flex flex-col p-4">
-                            <div className="flex justify-between items-center mb-4">
-                                <h2 className="text-3xl text-yellow-400 font-black game-font">SHOP</h2>
-                                <button onClick={() => setGameState(level === 1 && enemy.hp === enemy.maxHp ? 'START' : 'REWARD')} className="text-white font-bold bg-slate-700 px-4 py-2 rounded">CLOSE ✖</button>
-                            </div>
-                            <div className="bg-slate-800 p-3 rounded-xl mb-4 flex justify-between items-center border border-yellow-600/50">
-                                <span className="text-gray-400 font-bold">YOUR COINS:</span><span className="text-2xl text-yellow-400 font-black">💰 {formatNumber(totalCoins)}</span>
-                            </div>
-                            <button onClick={() => setShowIAP(true)} className="w-full py-3 mb-4 bg-gradient-to-r from-blue-600 to-blue-500 rounded-xl font-black text-white text-lg shadow-lg border-b-4 border-blue-800 active:border-b-0 active:translate-y-1 flex items-center justify-center gap-2"><span className="star-icon"></span> GET COINS (STARS)</button>
-                            <div className="flex-1 overflow-y-auto space-y-4 pr-1 pb-10">
-                                <div className="space-y-2">
-                                    <h3 className="text-white/50 text-sm font-bold uppercase tracking-wider">Permanent Upgrades</h3>
-                                    <div className="bg-slate-800 p-3 rounded-xl flex justify-between items-center"><div><div className="text-white font-bold text-lg">⚔️ Attack UP (+2)</div><div className="text-xs text-gray-400">Current: {hero.atk}</div></div><button onClick={() => buyItem('atk', getUpgradePrice('atk'))} disabled={totalCoins < getUpgradePrice('atk')} className={`px-4 py-2 rounded-lg font-bold border-b-4 ${totalCoins >= getUpgradePrice('atk') ? 'bg-blue-600 border-blue-800 text-white active:border-b-0 active:translate-y-1' : 'bg-slate-600 border-slate-700 text-gray-400'}`}>💰{formatNumber(getUpgradePrice('atk'))}</button></div>
-                                    <div className="bg-slate-800 p-3 rounded-xl flex justify-between items-center"><div><div className="text-white font-bold text-lg">❤️ HP UP (+10)</div><div className="text-xs text-gray-400">Current: {hero.maxHp}</div></div><button onClick={() => buyItem('hp', getUpgradePrice('hp'))} disabled={totalCoins < getUpgradePrice('hp')} className={`px-4 py-2 rounded-lg font-bold border-b-4 ${totalCoins >= getUpgradePrice('hp') ? 'bg-blue-600 border-blue-800 text-white active:border-b-0 active:translate-y-1' : 'bg-slate-600 border-slate-700 text-gray-400'}`}>💰{formatNumber(getUpgradePrice('hp'))}</button></div>
-                                </div>
-                                <div className="space-y-2">
-                                    <h3 className="text-white/50 text-sm font-bold uppercase tracking-wider">Battle Items</h3>
-                                    <div className="bg-slate-800 p-3 rounded-xl flex justify-between items-center"><div><div className="text-white font-bold text-lg">🧪 Potion</div><div className="text-xs text-gray-400">Owned: {inventory.potion}</div></div><button onClick={() => buyItem('potion', 50)} disabled={totalCoins < 50} className={`px-4 py-2 rounded-lg font-bold border-b-4 ${totalCoins >= 50 ? 'bg-green-600 border-green-800 text-white active:border-b-0 active:translate-y-1' : 'bg-slate-600 border-slate-700 text-gray-400'}`}>💰50</button></div>
-                                    <div className="bg-slate-800 p-3 rounded-xl flex justify-between items-center"><div><div className="text-white font-bold text-lg">💣 Bomb</div><div className="text-xs text-gray-400">Owned: {inventory.bomb}</div></div><button onClick={() => buyItem('bomb', 100)} disabled={totalCoins < 100} className={`px-4 py-2 rounded-lg font-bold border-b-4 ${totalCoins >= 100 ? 'bg-orange-600 border-orange-800 text-white active:border-b-0 active:translate-y-1' : 'bg-slate-600 border-slate-700 text-gray-400'}`}>💰100</button></div>
-                                    <div className="bg-slate-800 p-3 rounded-xl flex justify-between items-center"><div><div className="text-white font-bold text-lg">🔄 Shuffle</div><div className="text-xs text-gray-400">Owned: {inventory.shuffle}</div></div><button onClick={() => buyItem('shuffle', 30)} disabled={totalCoins < 30} className={`px-4 py-2 rounded-lg font-bold border-b-4 ${totalCoins >= 30 ? 'bg-purple-600 border-purple-800 text-white active:border-b-0 active:translate-y-1' : 'bg-slate-600 border-slate-700 text-gray-400'}`}>💰30</button></div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {showIAP && (
-                         <div className="absolute inset-0 z-[70] bg-black/95 flex flex-col p-6 items-center justify-center">
-                             <h2 className="text-3xl text-white font-black mb-6 game-font">BUY COINS</h2>
-                             <div className="w-full max-w-sm space-y-4">
-                                 <div onClick={() => handleStarsPurchase(1000, 50)} className="iap-card p-4 rounded-xl flex justify-between items-center cursor-pointer active:scale-95 transition-transform bg-slate-800 border-2 border-slate-600"><div className="flex items-center gap-3"><div className="text-4xl">💰</div><div><div className="text-white font-black text-xl">1,000 Coins</div></div></div><div className="bg-blue-600 text-white px-3 py-1 rounded-lg font-bold flex items-center gap-1"><span className="star-icon w-4 h-4"></span> 50</div></div>
-                                 <div onClick={() => handleStarsPurchase(5000, 200)} className="iap-card p-4 rounded-xl flex justify-between items-center cursor-pointer active:scale-95 transition-transform bg-slate-800 border-2 border-yellow-600"><div className="flex items-center gap-3"><div className="text-4xl">💎</div><div><div className="text-white font-black text-xl">5,000 Coins</div></div></div><div className="bg-blue-600 text-white px-3 py-1 rounded-lg font-bold flex items-center gap-1"><span className="star-icon w-4 h-4"></span> 200</div></div>
-                                 <div onClick={() => handleStarsPurchase(15000, 500)} className="iap-card p-4 rounded-xl flex justify-between items-center cursor-pointer active:scale-95 transition-transform bg-slate-800 border-2 border-slate-600"><div className="flex items-center gap-3"><div className="text-4xl">👑</div><div><div className="text-white font-black text-xl">15,000 Coins</div></div></div><div className="bg-blue-600 text-white px-3 py-1 rounded-lg font-bold flex items-center gap-1"><span className="star-icon w-4 h-4"></span> 500</div></div>
-                             </div>
-                             <button onClick={() => setShowIAP(false)} className="mt-8 text-white/70 font-bold border border-white/30 px-6 py-2 rounded-lg hover:bg-white/10">CANCEL</button>
-                         </div>
-                    )}
-
-                    {/* --- CUSTOM PROFILE MODAL (REPLACEMENT FOR NATIVE CONFIRM) --- */}
-                    {showProfileModal && (
-                        <div className="absolute inset-0 z-[80] bg-black/90 flex flex-col items-center justify-center p-6 backdrop-blur-sm anim-pop-in">
-                            <div className="bg-slate-800 border-4 border-slate-600 rounded-2xl p-6 w-full max-w-sm shadow-2xl relative">
-                                <button onClick={() => setShowProfileModal(false)} className="absolute -top-4 -right-4 bg-red-500 text-white font-bold w-10 h-10 rounded-full border-2 border-white shadow-lg">✖</button>
-                                
-                                <h2 className="text-2xl text-white font-black text-center mb-2 game-font uppercase tracking-wider">Player Profile</h2>
-                                <div className="bg-slate-900/50 p-4 rounded-xl mb-6 text-center border border-white/10">
-                                    <div className="text-4xl mb-2">{user ? '🌐' : '👤'}</div>
-                                    <div className="text-yellow-400 font-bold text-xl">{activeUserName}</div>
-                                    {user && <div className="text-xs text-white/50 mt-1">{user.email}</div>}
-                                    <div className="text-xs text-green-400 mt-2 font-mono bg-black/30 inline-block px-2 py-1 rounded">ID: {activeUserId.toString().slice(0,8)}...</div>
-                                </div>
-
-                                <div className="space-y-3">
-                                    {user ? (
-                                        <button onClick={window.logoutGoogle} className="w-full py-3 bg-red-600 hover:bg-red-500 rounded-xl font-bold text-white shadow-lg border-b-4 border-red-800 active:border-b-0 active:translate-y-1">LOGOUT GOOGLE</button>
-                                    ) : (
-                                        <>
-                                            <button onClick={window.loginGoogle} className="w-full py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold text-white shadow-lg border-b-4 border-blue-800 active:border-b-0 active:translate-y-1 flex items-center justify-center gap-2">
-                                                <span className="bg-white text-blue-600 rounded-full w-5 h-5 flex items-center justify-center text-xs">G</span> LOGIN GOOGLE
-                                            </button>
-                                            <button onClick={() => {
-                                                const newName = prompt("Masukkan Nama Baru:", activeUserName);
-                                                if(newName && newName.trim().length > 0) {
-                                                    localStorage.setItem('guest_player_name', newName);
-                                                    window.location.reload();
-                                                }
-                                            }} className="w-full py-3 bg-slate-600 hover:bg-slate-500 rounded-xl font-bold text-white shadow-lg border-b-4 border-slate-800 active:border-b-0 active:translate-y-1">✏️ GANTI NAMA</button>
-                                        </>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                </div>
-            );
-        }
-
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<GameApp />);
-    </script>
-</body>
-  </html>
+                            <h1 className="text-6xl font-black text-yellow-500 
