@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Puzzle Heroes RPG: Enhanced</title>
+    <title>Puzzle Heroes RPG: Ultimate</title>
     
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
@@ -17,8 +17,8 @@
         
         body { 
             font-family: 'Fredoka One', 'Verdana', sans-serif; 
-            background-color: var(--tg-theme-bg-color, #0f172a); 
-            color: var(--tg-theme-text-color, #ffffff);
+            background-color: #0f172a; 
+            color: #ffffff;
             overflow: hidden; 
             touch-action: none; 
             user-select: none; 
@@ -26,50 +26,36 @@
         }
         .game-font { text-shadow: 2px 2px 0px #000; letter-spacing: 1px; }
         
-        /* Animation Keyframes */
+        /* --- VISUAL EFFECTS & ANIMATIONS --- */
         @keyframes pulse-glow { 0%, 100% { filter: brightness(1) drop-shadow(0 0 0px transparent); transform: scale(1); } 50% { filter: brightness(1.5) drop-shadow(0 0 10px gold); transform: scale(1.1); } }
-        @keyframes spin-fast { 0% { transform: rotate(0deg) scale(1); } 100% { transform: rotate(360deg) scale(1.1); } }
-        @keyframes combo-pop { 0% { transform: scale(0) rotate(-10deg); opacity: 0; } 50% { transform: scale(1.5) rotate(5deg); opacity: 1; } 100% { transform: scale(1) rotate(0deg); opacity: 0; } }
+        @keyframes spin-nova { 0% { transform: rotate(0deg) scale(1); } 100% { transform: rotate(360deg) scale(1.1); } }
+        @keyframes sway { 0%, 100% { transform: translateX(-2px); } 50% { transform: translateX(2px); } }
+        @keyframes float-up { 0% { transform: translate(-50%, 0) scale(1); opacity: 1; } 100% { transform: translate(-50%, -80px) scale(1.2); opacity: 0; } }
         @keyframes screen-shake { 0%, 100% { transform: translate(0,0); } 25% { transform: translate(-5px, 5px); } 50% { transform: translate(5px, -5px); } 75% { transform: translate(-5px, -5px); } }
-
-        /* Existing Animations */
-        @keyframes sway-hero { 0%, 100% { transform: translateX(-3px); } 50% { transform: translateX(3px); } }
-        @keyframes sway-enemy { 0%, 100% { transform: translateX(3px); } 50% { transform: translateX(-3px); } }
-        @keyframes float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-6px); } }
-        @keyframes breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.02); } }
-        @keyframes punch-pop { 0% { transform: scale(0) rotate(-45deg); opacity: 0; } 40% { transform: scale(1.5) rotate(0deg); opacity: 1; } 60% { transform: scale(1.2) rotate(10deg); } 100% { transform: scale(1.5) translateY(-20px); opacity: 0; } }
-        @keyframes hit-shake { 0%, 100% { transform: translateX(0); } 20%, 60% { transform: translateX(-6px) rotate(-2deg); filter: brightness(2) sepia(1) hue-rotate(-50deg); } 40%, 80% { transform: translateX(6px) rotate(2deg); } }
-        @keyframes particle-pop { 0% { transform: scale(0.5) translateY(0); opacity: 1; } 100% { transform: scale(0) translateY(-50px) rotate(180deg); opacity: 0; } }
-        @keyframes float-up-fade { 0% { transform: translate(-50%, 0) scale(1); opacity: 1; } 100% { transform: translate(-50%, -80px) scale(1.2); opacity: 0; } }
-        @keyframes crumble { 0% { transform: scale(1); opacity: 1; } 100% { transform: scale(0); opacity: 0; } }
+        @keyframes crumble { 0% { transform: scale(1); opacity: 1; } 100% { transform: scale(0) rotate(45deg); opacity: 0; } }
         @keyframes drop-in { 0% { transform: translateY(-200%); } 100% { transform: translateY(0); } }
 
-        .anim-fall { animation: drop-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
-        .anim-special-bomb { animation: pulse-glow 1s infinite ease-in-out; z-index: 10; }
-        .anim-special-nova { animation: spin-fast 2s linear infinite; z-index: 10; border-radius: 50%; box-shadow: 0 0 15px rgba(255,255,255,0.8); }
-        .anim-shake-screen { animation: screen-shake 0.3s ease-in-out; }
-        .anim-combo { animation: combo-pop 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        .anim-fall { animation: drop-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        .anim-shake { animation: screen-shake 0.3s ease-in-out; }
+        .anim-bomb { animation: pulse-glow 0.8s infinite ease-in-out; z-index: 20; }
+        .anim-nova { animation: spin-nova 3s linear infinite; z-index: 20; border-radius: 50%; box-shadow: 0 0 10px rgba(255,255,255,0.8); }
+        .anim-hit { animation: screen-shake 0.2s; filter: brightness(5) sepia(1) hue-rotate(-50deg); }
         
         .css-board-frame {
-            background: linear-gradient(to bottom, #1e293b, #0f172a);
-            border: 4px solid #475569;
+            background: #111827;
+            border: 4px solid #374151;
             border-radius: 16px;
-            box-shadow: 0 0 0 4px #0f172a, 0 10px 25px rgba(0,0,0,0.7);
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
         }
         
         .css-hp-bar {
-            background: #0f172a; border: 2px solid #334155; border-radius: 6px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.5); position: relative; overflow: hidden;
+            background: #1f2937; border: 2px solid #374151; border-radius: 6px;
+            position: relative; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.5);
         }
 
         .btn-game { border-bottom-width: 4px; transition: all 0.1s; }
         .btn-game:active { border-bottom-width: 0px; transform: translateY(4px); }
-
-        .star-icon {
-            display: inline-block; width: 16px; height: 16px;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23eab308'%3E%3Cpath d='M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z'/%3E%3C/svg%3E");
-            background-size: cover;
-        }
+        .star-icon { width: 16px; height: 16px; display: inline-block; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23eab308'%3E%3Cpath d='M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z'/%3E%3C/svg%3E"); }
     </style>
 
     <script type="module">
@@ -77,7 +63,6 @@
         import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
         import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
-        // FIREBASE CONFIG (Tetap sama)
         const firebaseConfig = {
             apiKey: "AIzaSyBXxNettfJao-Eb-Y_a1dNuZ8_DOiX_-fo",
             authDomain: "puzzle-heroes-d5df2.firebaseapp.com",
@@ -93,17 +78,11 @@
         const auth = getAuth(app);
         const provider = new GoogleAuthProvider();
 
-        window.loginGoogle = async () => {
-            try { return (await signInWithPopup(auth, provider)).user; } catch (error) { alert("Error: " + error.message); return null; }
-        };
+        window.loginGoogle = async () => { try { return (await signInWithPopup(auth, provider)).user; } catch (e) { alert(e.message); return null; }};
         window.logoutGoogle = async () => { await signOut(auth); window.location.reload(); };
         window.authListener = (cb) => onAuthStateChanged(auth, cb);
-        window.loadCloudData = async (uid) => {
-            try { const s = await getDoc(doc(db, "players", uid.toString())); return s.exists() ? s.data() : null; } catch { return null; }
-        };
-        window.saveCloudData = async (uid, d) => {
-            try { await setDoc(doc(db, "players", uid.toString()), d, { merge: true }); } catch (e) { console.error(e); }
-        };
+        window.loadCloudData = async (uid) => { try { const s = await getDoc(doc(db, "players", uid.toString())); return s.exists() ? s.data() : null; } catch { return null; }};
+        window.saveCloudData = async (uid, d) => { try { await setDoc(doc(db, "players", uid.toString()), d, { merge: true }); } catch (e) { console.error(e); }};
     </script>
 </head>
 <body>
@@ -112,560 +91,569 @@
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
+        // --- ASSETS & CONFIG ---
         const ASSETS = {
-          btn_play: "https://res.cloudinary.com/dsutaioqw/image/upload/v1770120268/btn_play_rcewal.png",
-          bg_main: "https://res.cloudinary.com/dsutaioqw/image/upload/v1/puzzle%20hero/bg_main.png",
-          hero: "https://res.cloudinary.com/dsutaioqw/image/upload/v1770120266/hero_knqmzd.png",
-          enemy_goblin: "https://res.cloudinary.com/dsutaioqw/image/upload/v1770120266/monster_goblin_lcvfpv.png",
-          enemy_boss: "https://res.cloudinary.com/dsutaioqw/image/upload/v1770120266/monster_bos_tn2b0a.png",
-          gem_fire: "https://res.cloudinary.com/dsutaioqw/image/upload/v1770120267/gem-fire_rhcs6t.png", 
-          gem_water: "https://res.cloudinary.com/dsutaioqw/image/upload/v1770120266/gem_water_yk5zsx.png",
-          gem_nature: "https://res.cloudinary.com/dsutaioqw/image/upload/v1770120267/gem_nature_jj3l1g.png",
-          gem_lightning: "https://res.cloudinary.com/dsutaioqw/image/upload/v1770120267/gem_lightning_lu9s2z.png",
-          gem_shield: "https://res.cloudinary.com/dsutaioqw/image/upload/v1770120267/gem_shield_bdizjp.png",
+            btn_play: "https://res.cloudinary.com/dsutaioqw/image/upload/v1770120268/btn_play_rcewal.png",
+            bg_main: "https://res.cloudinary.com/dsutaioqw/image/upload/v1/puzzle%20hero/bg_main.png",
+            hero: "https://res.cloudinary.com/dsutaioqw/image/upload/v1770120266/hero_knqmzd.png",
+            enemy_goblin: "https://res.cloudinary.com/dsutaioqw/image/upload/v1770120266/monster_goblin_lcvfpv.png",
+            enemy_boss: "https://res.cloudinary.com/dsutaioqw/image/upload/v1770120266/monster_bos_tn2b0a.png",
+            gem_fire: "https://res.cloudinary.com/dsutaioqw/image/upload/v1770120267/gem-fire_rhcs6t.png", 
+            gem_water: "https://res.cloudinary.com/dsutaioqw/image/upload/v1770120266/gem_water_yk5zsx.png",
+            gem_nature: "https://res.cloudinary.com/dsutaioqw/image/upload/v1770120267/gem_nature_jj3l1g.png",
+            gem_lightning: "https://res.cloudinary.com/dsutaioqw/image/upload/v1770120267/gem_lightning_lu9s2z.png",
+            gem_shield: "https://res.cloudinary.com/dsutaioqw/image/upload/v1770120267/gem_shield_bdizjp.png",
         };
 
         const BOARD_ROWS = 7;
         const BOARD_COLS = 6;
         const GEM_TYPES = ['red', 'blue', 'green', 'yellow', 'purple'];
         const GEM_CONFIG = {
-          red:    { assetKey: 'gem_fire',      effect: 'dmg', val: 1.0, color: '#ef4444' },
-          blue:   { assetKey: 'gem_water',     effect: 'dmg', val: 1.0, color: '#3b82f6' },
-          yellow: { assetKey: 'gem_lightning', effect: 'dmg', val: 1.5, color: '#eab308' },
-          green:  { assetKey: 'gem_nature',    effect: 'heal', val: 1.5, color: '#22c55e' },
-          purple: { assetKey: 'gem_shield',    effect: 'shd', val: 2.0, color: '#a855f7' },
+            red:    { asset: 'gem_fire',      effect: 'dmg', val: 1.0, color: '#ef4444' },
+            blue:   { asset: 'gem_water',     effect: 'dmg', val: 1.0, color: '#3b82f6' },
+            yellow: { asset: 'gem_lightning', effect: 'dmg', val: 1.5, color: '#eab308' },
+            green:  { asset: 'gem_nature',    effect: 'heal', val: 1.5, color: '#22c55e' },
+            purple: { asset: 'gem_shield',    effect: 'shd', val: 2.0, color: '#a855f7' },
         };
-        
         const MONSTER_NAMES = ["Slime", "Goblin", "Wolf", "Orc", "Troll", "Golem", "Warlock", "Dragon", "Demon", "God"];
-        const formatNumber = (num) => {
-            if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
-            if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
-            return num.toString();
+        const formatNum = (n) => n >= 1000 ? (n/1000).toFixed(1)+'K' : n;
+
+        const SmartImage = ({ src, className }) => {
+            const [err, setErr] = useState(false);
+            return !err ? <img src={ASSETS[src] || src} className={className} onError={()=>setErr(true)}/> : <div className={`${className} bg-slate-700/50 rounded-full animate-pulse`}/>;
         };
 
-        const SmartImage = ({ assetKey, className = "", style }) => {
-            const [error, setError] = useState(false);
-            return (
-                <div className={`relative w-full h-full ${className}`} style={style}>
-                    {!error ? <img src={ASSETS[assetKey]} className="w-full h-full object-contain" onError={() => setError(true)} /> 
-                            : <div className="w-full h-full bg-slate-700/50 rounded-full animate-pulse"></div>}
-                </div>
-            );
-        };
+        // --- GAME LOGIC ENGINE ---
+        
+        // 1. Generate a Gem Object (Not just string)
+        const createGem = (type) => ({
+            id: Math.random().toString(36).substr(2, 9),
+            type: type || GEM_TYPES[Math.floor(Math.random() * GEM_TYPES.length)],
+            special: null // 'bomb', 'nova'
+        });
 
-        // ============ LOGIC: MATCH & SPECIAL GEMS ============
-        function checkMatches(boardToCheck) {
+        // 2. Advanced Match Detection (Inc. 2x2 Rule)
+        function checkMatches(board) {
             const matched = new Set();
             const matchInfo = {};
-            
-            // Helper to add match
-            const addMatch = (r, c, type, id, length, direction) => {
-                matched.add(`${r},${c}`);
-                if (!matchInfo[`${r},${c}`]) matchInfo[`${r},${c}`] = { type, id, length, direction };
-                else if (length > matchInfo[`${r},${c}`].length) matchInfo[`${r},${c}`] = { type, id, length, direction };
+
+            const addMatch = (r, c, type, id, len, dir) => {
+                const key = `${r},${c}`;
+                matched.add(key);
+                // Keep track of the "best" match this cell belongs to (prioritize 5 > 4 > 3)
+                if(!matchInfo[key] || len > matchInfo[key].length) {
+                    matchInfo[key] = { type, id, length: len, direction: dir };
+                }
             };
 
-            // Horizontal
-            for (let r = 0; r < BOARD_ROWS; r++) {
-                for (let c = 0; c < BOARD_COLS; c++) {
-                    const gem = boardToCheck[r][c];
-                    if (!gem) continue;
-                    let len = 1;
-                    while (c + len < BOARD_COLS && boardToCheck[r][c + len]?.type === gem.type) len++;
-                    if (len >= 3) {
-                        const matchId = `h-${r}-${c}-${Date.now()}`;
-                        for (let i = 0; i < len; i++) addMatch(r, c+i, gem.type, matchId, len, 'h');
-                    }
-                    c += len - 1; // Skip checked
+            // Horizontal & Vertical
+            for(let r=0; r<BOARD_ROWS; r++) {
+                for(let c=0; c<BOARD_COLS; c++) {
+                    const t = board[r][c]?.type;
+                    if(!t) continue;
+                    
+                    // Horiz
+                    let h=1; while(c+h < BOARD_COLS && board[r][c+h]?.type === t) h++;
+                    if(h>=3) for(let i=0; i<h; i++) addMatch(r, c+i, t, `h-${r}-${c}`, h, 'h');
+                    
+                    // Vert
+                    let v=1; while(r+v < BOARD_ROWS && board[r+v][c]?.type === t) v++;
+                    if(v>=3) for(let i=0; i<v; i++) addMatch(r+i, c, t, `v-${r}-${c}`, v, 'v');
                 }
             }
-            
-            // Vertical
-            for (let c = 0; c < BOARD_COLS; c++) {
-                for (let r = 0; r < BOARD_ROWS; r++) {
-                    const gem = boardToCheck[r][c];
-                    if (!gem) continue;
-                    let len = 1;
-                    while (r + len < BOARD_ROWS && boardToCheck[r + len][c]?.type === gem.type) len++;
-                    if (len >= 3) {
-                        const matchId = `v-${r}-${c}-${Date.now()}`;
-                        for (let i = 0; i < len; i++) addMatch(r+i, c, gem.type, matchId, len, 'v');
+
+            // 2x2 Square Detection (The User Request)
+            for(let r=0; r<BOARD_ROWS-1; r++) {
+                for(let c=0; c<BOARD_COLS-1; c++) {
+                    const t = board[r][c]?.type;
+                    if(t && board[r][c+1]?.type === t && board[r+1][c]?.type === t && board[r+1][c+1]?.type === t) {
+                        const id = `sq-${r}-${c}`;
+                        [ [r,c], [r,c+1], [r+1,c], [r+1,c+1] ].forEach(([rr,cc]) => {
+                            addMatch(rr, cc, t, id, 4, 'square'); // Length 4 acts like a match-4 technically
+                        });
                     }
-                    r += len - 1;
                 }
             }
-            
-            return Array.from(matched).map(str => {
-                const [r, c] = str.split(',').map(Number);
-                return { r, c, ...matchInfo[str] };
+
+            return Array.from(matched).map(k => {
+                const [r,c] = k.split(',').map(Number);
+                return { r, c, ...matchInfo[k] };
             });
         }
 
-        // ============ MAIN GAME ============
         function GameApp() {
             const tg = window.Telegram.WebApp;
-            const [user, setUser] = useState(null); 
-            const activeUserId = user ? user.uid : (localStorage.getItem('guest_player_id') || 'guest');
-            const activeUserName = user ? user.displayName : (localStorage.getItem('guest_player_name') || "Hero");
+            
+            // --- STATE ---
+            const [user, setUser] = useState(null);
+            const activeUid = user ? user.uid : (localStorage.getItem('guest_id') || 'guest');
+            const activeName = user ? user.displayName : (localStorage.getItem('guest_name') || 'Guest');
 
-            // Game State
-            const [gameState, setGameState] = useState('START'); // START, BATTLE, SHOP, REWARD, GAMEOVER
+            const [gameState, setGameState] = useState('START'); 
             const [level, setLevel] = useState(1);
-            const [totalCoins, setTotalCoins] = useState(100); 
-            const [stats, setStats] = useState({ hp: 0, atk: 0 }); 
+            const [coins, setCoins] = useState(100);
             const [inventory, setInventory] = useState({ potion: 1, bomb: 0, shuffle: 1 });
-            
-            // Battle State
-            const [hero, setHero] = useState({ maxHp: 100, hp: 100, atk: 15, shield: 0 });
-            const [enemy, setEnemy] = useState({ name: 'Goblin', maxHp: 100, hp: 100, atk: 10, isBoss: false });
-            const [board, setBoard] = useState([]);
-            const [turn, setTurn] = useState('player'); 
-            const [isProcessing, setIsProcessing] = useState(false);
-            const [combo, setCombo] = useState(0);
-            
-            // VFX State
-            const [particles, setParticles] = useState([]);
-            const [floatTexts, setFloatTexts] = useState([]);
-            const [screenShake, setScreenShake] = useState(false);
-            const [dragStart, setDragStart] = useState(null);
-            const [crushCells, setCrushCells] = useState([]);
-            const [animState, setAnimState] = useState({ hero: '', enemy: '' });
+            const [upgrades, setUpgrades] = useState({ atk: 0, hp: 0 }); // Level upgrades
 
-            // Initialize
+            // Battle State
+            const [board, setBoard] = useState([]);
+            const [hero, setHero] = useState({ hp: 100, maxHp: 100, atk: 15, shield: 0 });
+            const [enemy, setEnemy] = useState({ hp: 100, maxHp: 100, atk: 10, name: 'Slime' });
+            const [turn, setTurn] = useState('player');
+            const [isBusy, setIsBusy] = useState(false);
+            const [combo, setCombo] = useState(0);
+
+            // VFX
+            const [shake, setShake] = useState(false);
+            const [floating, setFloating] = useState([]);
+            const [crush, setCrush] = useState([]);
+            const [dragData, setDragData] = useState(null);
+            const [heroAnim, setHeroAnim] = useState('');
+            const [enemyAnim, setEnemyAnim] = useState('');
+
+            // --- INIT & SYNC ---
             useEffect(() => {
-                if(!localStorage.getItem('guest_player_id')) localStorage.setItem('guest_player_id', 'g-'+Date.now());
+                if(!localStorage.getItem('guest_id')) localStorage.setItem('guest_id', 'g-'+Date.now());
                 tg.ready(); tg.expand();
                 window.authListener(u => {
                     setUser(u);
-                    if(u) window.loadCloudData(u.uid).then(d => { if(d) { setLevel(d.level); setTotalCoins(d.totalCoins); setStats(d.bonusStats); setInventory(d.inventory); }});
+                    if(u) window.loadCloudData(u.uid).then(d => { 
+                        if(d) { setLevel(d.level); setCoins(d.coins); setInventory(d.inventory); setUpgrades(d.upgrades || {atk:0, hp:0}); }
+                    });
                 });
-                setBoard(createBoard());
+                setBoard(generateBoard(true));
             }, []);
 
-            // Save Progress
             useEffect(() => {
-                if(gameState !== 'BATTLE' && activeUserId !== 'guest') {
-                    window.saveCloudData(activeUserId, { level, totalCoins, bonusStats: stats, inventory, username: activeUserName });
+                if(activeUid !== 'guest' && gameState !== 'BATTLE') {
+                    window.saveCloudData(activeUid, { level, coins, inventory, upgrades, username: activeName });
                 }
-            }, [level, totalCoins, stats, inventory, gameState]);
+            }, [level, coins, inventory, upgrades, gameState]);
 
-            // Helper: Create Gem
-            const createGem = (forceType) => ({
-                id: Math.random().toString(36).substr(2, 9),
-                type: forceType || GEM_TYPES[Math.floor(Math.random() * GEM_TYPES.length)],
-                special: null // 'bomb', 'nova'
-            });
-
-            // Helper: Create Valid Board (No Matches)
-            const createBoard = () => {
+            // --- GAMEPLAY HELPERS ---
+            const generateBoard = (preventMatch) => {
                 let b;
                 do {
                     b = Array(BOARD_ROWS).fill(null).map(() => Array(BOARD_COLS).fill(null).map(() => createGem()));
-                } while (checkMatches(b).length > 0);
+                } while (preventMatch && checkMatches(b).length > 0);
                 return b;
             };
 
-            // Helper: Calculate Stats
-            const getHeroStats = () => {
-                const baseHp = Math.floor(100 * Math.pow(1.08, level - 1)) + stats.hp;
-                const baseAtk = Math.floor(15 * Math.pow(1.08, level - 1)) + stats.atk;
+            const getStats = () => {
+                // Exponential Scaling for Hero
+                const baseHp = 100 + (upgrades.hp * 15); // +15 per upgrade
+                const baseAtk = 15 + (upgrades.atk * 3);  // +3 per upgrade
                 return { maxHp: baseHp, hp: baseHp, atk: baseAtk, shield: 0 };
             };
 
             const getEnemyStats = () => {
+                // Exponential Scaling for Enemy
                 const isBoss = level % 5 === 0;
-                const multiplier = Math.pow(1.1, level);
+                const scale = Math.pow(1.1, level); // 10% stronger per level
                 return {
-                    name: isBoss ? `BOSS ${MONSTER_NAMES[Math.min(Math.floor(level/5), MONSTER_NAMES.length-1)]}` : MONSTER_NAMES[Math.floor(Math.random()*MONSTER_NAMES.length)],
-                    maxHp: Math.floor(100 * multiplier * (isBoss ? 3 : 1)),
-                    hp: Math.floor(100 * multiplier * (isBoss ? 3 : 1)),
-                    atk: Math.floor(8 * multiplier * (isBoss ? 1.5 : 1)),
+                    name: isBoss ? `BOSS ${MONSTER_NAMES[Math.min(Math.floor(level/5), 9)]}` : MONSTER_NAMES[Math.floor(Math.random()*10)],
+                    maxHp: Math.floor(100 * scale * (isBoss ? 2.5 : 1)),
+                    hp: Math.floor(100 * scale * (isBoss ? 2.5 : 1)),
+                    atk: Math.floor(8 * scale * (isBoss ? 1.4 : 1)),
                     isBoss
                 };
             };
 
-            // Start Battle
-            const startLevel = () => {
-                setHero(getHeroStats());
+            const spawnText = (txt, color) => {
+                const id = Date.now()+Math.random();
+                setFloating(p => [...p, {id, txt, color}]);
+                setTimeout(() => setFloating(p => p.filter(x => x.id !== id)), 1000);
+            };
+
+            const triggerShake = () => { setShake(true); tg.HapticFeedback.impactOccurred('medium'); setTimeout(() => setShake(false), 300); };
+
+            const startBattle = () => {
+                setHero(getStats());
                 setEnemy(getEnemyStats());
-                setBoard(createBoard());
+                setBoard(generateBoard(true));
                 setTurn('player');
-                setIsProcessing(false);
+                setIsBusy(false);
                 setCombo(0);
                 setGameState('BATTLE');
             };
 
-            // Actions
-            const spawnVFX = (r, c, type, txt) => {
-                const id = Date.now() + Math.random();
-                if(txt) setFloatTexts(p => [...p, { id, r, c, txt, color: type === 'dmg' ? '#ef4444' : (type === 'heal' ? '#22c55e' : '#fff') }]);
-                else setParticles(p => [...p, { id, top: r*14.28+7+'%', left: c*16.66+8+'%', color: GEM_CONFIG[type]?.color || '#fff' }]);
-                setTimeout(() => {
-                    if(txt) setFloatTexts(p => p.filter(x => x.id !== id));
-                    else setParticles(p => p.filter(x => x.id !== id));
-                }, 800);
-            };
-
-            const triggerShake = () => { setScreenShake(true); setTimeout(() => setScreenShake(false), 300); tg.HapticFeedback.impactOccurred('heavy'); };
-
-            // ============ CORE MECHANIC: RESOLVE BOARD ============
+            // --- CORE ENGINE: RESOLVE BOARD ---
             const resolveBoard = async (currentBoard, currentCombo = 0) => {
-                setIsProcessing(true);
-                let activeBoard = currentBoard.map(row => row.map(cell => ({...cell})));
-                let hasMatches = true;
-                let loopCount = 0;
+                setIsBusy(true);
+                let tempBoard = currentBoard.map(row => row.map(c => ({...c}))); // Deep copy
+                let hasMatch = true;
+                let loop = 0;
                 let comboCount = currentCombo;
 
-                while (hasMatches && loopCount < 10) {
-                    const matches = checkMatches(activeBoard);
-                    if (matches.length === 0) { hasMatches = false; break; }
+                while(hasMatch && loop < 10) {
+                    const matches = checkMatches(tempBoard);
+                    if(matches.length === 0) { hasMatch = false; break; }
 
                     comboCount++;
                     if(comboCount > 1) setCombo(comboCount);
 
-                    // 1. Process Logic (Damage, Special Creation)
-                    const uniqueMatches = {}; // Store match info by ID to detect match-4/5
+                    // Group matches by ID to detect Shape (Line vs Square)
+                    const groups = {};
                     matches.forEach(m => {
-                        if(!uniqueMatches[m.id]) uniqueMatches[m.id] = [];
-                        uniqueMatches[m.id].push(m);
+                        if(!groups[m.id]) groups[m.id] = [];
+                        groups[m.id].push(m);
                     });
 
-                    let dmgTotal = 0, healTotal = 0, shieldTotal = 0;
-                    const specialSpawns = []; // {r, c, type}
+                    let dmg=0, heal=0, shield=0;
+                    const newSpecials = [];
 
-                    // Process each distinct match group
-                    Object.values(uniqueMatches).forEach(group => {
-                        const first = group[0];
-                        const length = group.length;
-                        const gType = activeBoard[first.r][first.c].type;
+                    // Process Groups
+                    Object.values(groups).forEach(grp => {
+                        const rep = grp[0]; // Representative cell
+                        const type = tempBoard[rep.r][rep.c].type;
+                        const len = grp.length;
+                        const conf = GEM_CONFIG[type];
                         
-                        // Check for existing specials being detonated
-                        group.forEach(m => {
-                            const cell = activeBoard[m.r][m.c];
-                            if(cell.special === 'bomb') {
-                                // Explosion Logic
-                                for(let rr = m.r-1; rr<=m.r+1; rr++) {
-                                    for(let cc = m.c-1; cc<=m.c+1; cc++) {
-                                        if(activeBoard[rr]?.[cc] && !matches.find(x => x.r===rr && x.c===cc)) {
-                                            matches.push({r:rr, c:cc}); // Add to clear list
-                                            spawnVFX(rr, cc, 'red', 'BOOM!');
-                                        }
-                                    }
-                                }
-                                triggerShake();
-                            } else if(cell.special === 'nova') {
-                                // Color Clear Logic
-                                for(let rr=0; rr<BOARD_ROWS; rr++) {
-                                    for(let cc=0; cc<BOARD_COLS; cc++) {
-                                        if(activeBoard[rr][cc]?.type === gType) matches.push({r:rr, c:cc});
-                                    }
-                                }
-                                triggerShake();
+                        // Detect Special Creation
+                        if(len >= 5) newSpecials.push({r: rep.r, c: rep.c, type, special: 'nova'});
+                        else if(len === 4) newSpecials.push({r: rep.r, c: rep.c, type, special: 'bomb'});
+                        
+                        // Detect 2x2 Square Bonus
+                        const isSquare = rep.direction === 'square';
+                        const multiplier = 1 + (comboCount * 0.2) + (isSquare ? 0.5 : 0);
+
+                        // Stats
+                        if(conf.effect === 'dmg') dmg += hero.atk * conf.val * multiplier;
+                        if(conf.effect === 'heal') heal += (hero.maxHp * 0.05) * multiplier;
+                        if(conf.effect === 'shd') shield += 5 * multiplier;
+
+                        // Check Special Detonation (Bomb/Nova inside a match)
+                        grp.forEach(m => {
+                            const cell = tempBoard[m.r][m.c];
+                            if(cell.special === 'bomb') { // Explode 3x3
+                                for(let rr=m.r-1; rr<=m.r+1; rr++) for(let cc=m.c-1; cc<=m.c+1; cc++) 
+                                    if(tempBoard[rr]?.[cc] && !matches.find(x=>x.r===rr && x.c===cc)) matches.push({r:rr, c:cc});
+                                spawnText("BOOM!", "#f00"); triggerShake();
+                            }
+                            if(cell.special === 'nova') { // Destroy Color
+                                for(let rr=0; rr<BOARD_ROWS; rr++) for(let cc=0; cc<BOARD_COLS; cc++)
+                                    if(tempBoard[rr][cc]?.type === type) matches.push({r:rr, c:cc});
+                                spawnText("NOVA!", "#fff"); triggerShake();
                             }
                         });
-
-                        // Create New Specials
-                        if (length >= 5) specialSpawns.push({ r: first.r, c: first.c, type: gType, special: 'nova' });
-                        else if (length === 4) specialSpawns.push({ r: first.r, c: first.c, type: gType, special: 'bomb' });
-
-                        // Stats Calculation
-                        const mult = 1 + (comboCount * 0.2) + (length > 3 ? 0.5 : 0);
-                        const conf = GEM_CONFIG[gType];
-                        if (conf.effect === 'dmg') dmgTotal += hero.atk * conf.val * mult;
-                        if (conf.effect === 'heal') healTotal += (hero.maxHp * 0.05) * mult;
-                        if (conf.effect === 'shd') shieldTotal += 5 * mult;
                     });
 
-                    // Apply Stats
-                    if (dmgTotal > 0) {
-                        setEnemy(prev => ({...prev, hp: Math.max(0, prev.hp - Math.floor(dmgTotal))}));
-                        setAnimState(p => ({...p, enemy: 'anim-hit'})); spawnVFX(0,0,'dmg', `-${Math.floor(dmgTotal)}`);
+                    // Apply Battle Stats
+                    if(dmg > 0) {
+                        setEnemy(prev => ({...prev, hp: Math.max(0, prev.hp - Math.floor(dmg))}));
+                        setEnemyAnim('anim-hit'); spawnText(`-${Math.floor(dmg)}`, '#f87171');
                     }
-                    if (healTotal > 0) {
-                        setHero(prev => ({...prev, hp: Math.min(prev.maxHp, prev.hp + Math.floor(healTotal))}));
-                        spawnVFX(0,0,'heal', `+${Math.floor(healTotal)}`);
+                    if(heal > 0) {
+                        setHero(prev => ({...prev, hp: Math.min(prev.maxHp, prev.hp + Math.floor(heal))}));
+                        spawnText(`+${Math.floor(heal)}`, '#4ade80');
                     }
-                    if (shieldTotal > 0) setHero(prev => ({...prev, shield: prev.shield + Math.floor(shieldTotal)}));
+                    if(shield > 0) setHero(prev => ({...prev, shield: prev.shield + Math.floor(shield)}));
 
-                    // 2. Visual Crush
-                    setCrushCells(matches.map(m => `${m.r},${m.c}`));
-                    matches.forEach(m => spawnVFX(m.r, m.c, activeBoard[m.r][m.c].type));
+                    // Animate Crush
+                    setCrush(matches.map(m => `${m.r},${m.c}`));
                     await new Promise(r => setTimeout(r, 400));
+                    setEnemyAnim('');
 
-                    // 3. Remove Gems
-                    matches.forEach(m => activeBoard[m.r][m.c] = null);
-                    
-                    // 4. Spawn Specials
-                    specialSpawns.forEach(s => {
-                        activeBoard[s.r][s.c] = { ...createGem(s.type), special: s.special };
-                    });
+                    // Remove & Spawn Specials
+                    matches.forEach(m => tempBoard[m.r][m.c] = null);
+                    newSpecials.forEach(s => tempBoard[s.r][s.c] = {...createGem(s.type), special: s.special});
+                    setBoard(tempBoard.map(row => [...row]));
+                    setCrush([]);
 
-                    setBoard(activeBoard.map(r => [...r]));
-                    setCrushCells([]);
-                    setAnimState({hero:'', enemy:''});
-
-                    // 5. Gravity
+                    // Gravity
                     await new Promise(r => setTimeout(r, 100));
                     for(let c=0; c<BOARD_COLS; c++) {
                         let empty = 0;
                         for(let r=BOARD_ROWS-1; r>=0; r--) {
-                            if(!activeBoard[r][c]) empty++;
+                            if(!tempBoard[r][c]) empty++;
                             else if(empty > 0) {
-                                activeBoard[r+empty][c] = activeBoard[r][c];
-                                activeBoard[r][c] = null;
+                                tempBoard[r+empty][c] = tempBoard[r][c];
+                                tempBoard[r][c] = null;
                             }
                         }
-                        for(let i=0; i<empty; i++) activeBoard[i][c] = createGem();
+                        for(let i=0; i<empty; i++) tempBoard[i][c] = createGem();
                     }
-                    setBoard(activeBoard.map(r => [...r]));
+                    setBoard(tempBoard.map(row => [...row]));
                     
                     // Wait for fall
-                    await new Promise(r => setTimeout(r, 400));
-                    loopCount++;
+                    await new Promise(r => setTimeout(r, 450));
+                    loop++;
                 }
 
-                setIsProcessing(false);
+                setIsBusy(false);
                 setCombo(0);
                 
                 // End Turn Check
-                if (enemy.hp <= 0) { // WIN
-                     // Keep logic handled in useEffect
+                if(enemy.hp <= 0) {
+                    // Win handled in effect
                 } else {
                     setTurn('enemy');
                 }
             };
 
-            // Enemy Turn Logic
+            // Enemy Turn
             useEffect(() => {
-                if(turn === 'enemy' && enemy.hp > 0 && gameState === 'BATTLE' && !isProcessing) {
-                    const doEnemyTurn = async () => {
-                        setIsProcessing(true);
-                        // Phase 1: Charge
-                        setAnimState(p => ({...p, enemy: 'scale-110 brightness-125 duration-1000'}));
+                if(turn === 'enemy' && enemy.hp > 0 && gameState === 'BATTLE' && !isBusy) {
+                    const runEnemy = async () => {
+                        setIsBusy(true);
+                        setEnemyAnim('scale-110'); // Charge
                         await new Promise(r => setTimeout(r, 1000));
                         
-                        // Phase 2: Attack
-                        setAnimState(p => ({...p, enemy: 'anim-sway-enemy'})); // Reset
-                        triggerShake();
+                        // Attack
+                        const dmg = Math.max(0, enemy.atk - hero.shield);
+                        const shieldLeft = Math.max(0, hero.shield - enemy.atk);
                         
-                        // Calc Dmg
-                        const rawDmg = Math.max(5, enemy.atk);
-                        let finalDmg = rawDmg;
-                        let shieldLeft = hero.shield;
-                        if(shieldLeft > 0) {
-                             if(shieldLeft >= finalDmg) { shieldLeft -= finalDmg; finalDmg = 0; spawnVFX(0,0,'shd', "BLOCKED"); }
-                             else { finalDmg -= shieldLeft; shieldLeft = 0; }
+                        if(enemy.atk > hero.shield) {
+                            setHero(h => ({...h, hp: Math.max(0, h.hp - dmg), shield: shieldLeft}));
+                            setHeroAnim('anim-hit'); spawnText(`-${dmg}`, '#ef4444');
+                            triggerShake();
+                        } else {
+                            setHero(h => ({...h, shield: shieldLeft}));
+                            spawnText("BLOCKED", "#a855f7");
                         }
                         
-                        setHero(h => ({...h, hp: Math.max(0, h.hp - finalDmg), shield: shieldLeft}));
-                        if(finalDmg > 0) {
-                            spawnVFX(0,0,'dmg', `-${finalDmg}`);
-                            setAnimState(p => ({...p, hero: 'anim-hit'}));
-                        }
-
-                        await new Promise(r => setTimeout(r, 800));
-                        setAnimState({hero:'', enemy:''});
+                        setEnemyAnim('');
+                        setHeroAnim('');
                         setTurn('player');
-                        setIsProcessing(false);
+                        setIsBusy(false);
                     };
-                    doEnemyTurn();
+                    runEnemy();
                 }
-            }, [turn, gameState, isProcessing]);
+            }, [turn, gameState, isBusy]);
 
-            // Win/Loss Checks
+            // Win/Loss
             useEffect(() => {
-                if(enemy.hp <= 0 && gameState === 'BATTLE') {
-                    setTotalCoins(c => c + Math.floor(20 * Math.pow(1.1, level)));
-                    setTimeout(() => setGameState('REWARD'), 1000);
+                if(gameState !== 'BATTLE') return;
+                if(enemy.hp <= 0) {
+                    setCoins(c => c + Math.floor(20 * Math.pow(1.1, level)));
+                    setTimeout(() => setGameState('REWARD'), 800);
                 }
-                if(hero.hp <= 0 && gameState === 'BATTLE') {
-                    setTimeout(() => setGameState('GAMEOVER'), 1000);
-                }
-            }, [enemy.hp, hero.hp, gameState]);
+                if(hero.hp <= 0) setTimeout(() => setGameState('GAMEOVER'), 800);
+            }, [enemy.hp, hero.hp]);
 
-
-            // Input Handling
-            const handleTouchStart = (e, r, c) => {
-                if(isProcessing || turn !== 'player') return;
-                const touch = e.touches ? e.touches[0] : e;
-                setDragStart({ r, c, x: touch.clientX, y: touch.clientY });
+            // --- INPUT ---
+            const handleInputStart = (e, r, c) => {
+                if(isBusy || turn !== 'player') return;
+                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                setDragData({r, c, x: clientX, y: clientY});
             };
 
-            const handleTouchEnd = (e) => {
-                if(!dragStart || isProcessing) return;
-                const touch = e.changedTouches ? e.changedTouches[0] : e;
-                const dx = touch.clientX - dragStart.x;
-                const dy = touch.clientY - dragStart.y;
-                
+            const handleInputEnd = (e) => {
+                if(!dragData || isBusy) return;
+                const clientX = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
+                const clientY = e.changedTouches ? e.changedTouches[0].clientY : e.clientY;
+                const dx = clientX - dragData.x;
+                const dy = clientY - dragData.y;
+
                 if(Math.abs(dx) > 30 || Math.abs(dy) > 30) {
-                    const r2 = Math.abs(dy) > Math.abs(dx) ? (dy > 0 ? dragStart.r + 1 : dragStart.r - 1) : dragStart.r;
-                    const c2 = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? dragStart.c + 1 : dragStart.c - 1) : dragStart.c;
-                    
+                    const r2 = Math.abs(dy) > Math.abs(dx) ? (dy > 0 ? dragData.r+1 : dragData.r-1) : dragData.r;
+                    const c2 = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? dragData.c+1 : dragData.c-1) : dragData.c;
+
                     if(r2 >= 0 && r2 < BOARD_ROWS && c2 >= 0 && c2 < BOARD_COLS) {
-                        // Swap
-                        const newBoard = board.map(row => row.map(cell => ({...cell})));
-                        [newBoard[dragStart.r][dragStart.c], newBoard[r2][c2]] = [newBoard[r2][c2], newBoard[dragStart.r][dragStart.c]];
+                        const temp = board.map(r => r.map(c => ({...c})));
+                        [temp[dragData.r][dragData.c], temp[r2][c2]] = [temp[r2][c2], temp[dragData.r][dragData.c]];
                         
-                        if(checkMatches(newBoard).length > 0) {
-                            setBoard(newBoard);
-                            resolveBoard(newBoard);
+                        if(checkMatches(temp).length > 0) {
+                            setBoard(temp);
+                            resolveBoard(temp);
                         } else {
-                            // Invalid move visual feedback
                             tg.HapticFeedback.notificationOccurred('error');
                         }
                     }
                 }
-                setDragStart(null);
+                setDragData(null);
             };
 
+            // --- IAP & UPGRADES ---
+            const handleInvoice = (amount, reward) => {
+                if(!user) { setCoins(c => c + reward); return; } // Guest mode simulation
+                const invoiceUrl = "https://t.me/$D8iuOsDkIFQgBAAAUoNG2nbqTHI"; // Link placeholder
+                if(invoiceUrl.includes("$")) {
+                   tg.openInvoice(invoiceUrl, (status) => {
+                       if(status === 'paid') {
+                           setCoins(c => c + reward);
+                           tg.showAlert("Purchase Successful!");
+                       }
+                   });
+                } else { tg.showAlert("Dev: Set Invoice Link!"); }
+            };
+
+            const buyUpgrade = (type) => {
+                const currentLevel = upgrades[type];
+                // Exponential Price: Base * 1.5 ^ level
+                const price = Math.floor((type === 'atk' ? 100 : 80) * Math.pow(1.5, currentLevel));
+                
+                if(coins >= price) {
+                    setCoins(c => c - price);
+                    setUpgrades(u => ({...u, [type]: u[type] + 1}));
+                    tg.HapticFeedback.notificationOccurred('success');
+                } else tg.HapticFeedback.notificationOccurred('error');
+            };
+            
+            const getPrice = (type) => Math.floor((type === 'atk' ? 100 : 80) * Math.pow(1.5, upgrades[type]));
+
+            // --- RENDER ---
             return (
-                <div className={`h-screen w-full flex flex-col relative overflow-hidden bg-slate-900 ${screenShake ? 'anim-shake-screen' : ''}`}
-                     onTouchEnd={handleTouchEnd} onMouseUp={handleTouchEnd}>
+                <div className={`h-screen w-full flex flex-col bg-slate-900 relative ${shake ? 'anim-shake' : ''}`}
+                     onTouchEnd={handleInputEnd} onMouseUp={handleInputEnd}>
                     
-                    {/* Background */}
-                    <img src={ASSETS.bg_main} className="absolute inset-0 w-full h-full object-cover opacity-30" />
+                    {/* --- BACKGROUND & HEADER --- */}
+                    <div className="absolute inset-0 z-0 opacity-30"><SmartImage src="bg_main" className="w-full h-full object-cover"/></div>
                     
-                    {/* Header */}
-                    <div className="relative z-10 p-2 flex justify-between items-start">
-                        <div className="bg-slate-800/80 px-3 py-1 rounded-full border border-yellow-600 flex items-center gap-2">
-                            <span>💰</span><span className="text-yellow-400 font-bold">{formatNumber(totalCoins)}</span>
+                    <div className="relative z-10 flex justify-between items-center p-3 pt-4">
+                        <div className="bg-slate-800/90 border border-yellow-500 rounded-full px-4 py-1 flex items-center gap-2 shadow-lg cursor-pointer" onClick={()=>setGameState('SHOP')}>
+                            <span>💰</span><span className="text-yellow-400 font-bold text-lg">{formatNum(coins)}</span>
                         </div>
-                        <div className="text-center">
-                            <div className="text-xs text-slate-400 uppercase tracking-widest font-bold">LEVEL {level}</div>
-                            {turn === 'enemy' && <div className="text-red-500 font-black animate-pulse">ENEMY TURN</div>}
-                        </div>
-                        <button onClick={() => gameState === 'BATTLE' ? setGameState('SHOP') : {}} className="text-xs bg-blue-600 px-2 py-1 rounded shadow">SHOP</button>
+                        <div className="text-white/80 font-bold tracking-widest text-sm">LEVEL {level}</div>
+                        <button onClick={()=>setGameState('SHOP')} className="bg-blue-600 px-4 py-1 rounded-lg font-bold shadow hover:bg-blue-500 transition">SHOP</button>
                     </div>
 
-                    {/* Battle Area */}
-                    <div className="flex-1 flex flex-col relative z-10">
-                        {/* Enemy */}
-                        <div className="flex-1 flex flex-col items-center justify-center relative">
-                            <div className={`w-32 h-32 transition-all ${animState.enemy}`}>
-                                <SmartImage assetKey={enemy.isBoss ? 'enemy_boss' : 'enemy_goblin'} className="drop-shadow-2xl" />
-                            </div>
-                            <div className="w-48 h-4 css-hp-bar mt-2">
-                                <div className="h-full bg-red-600 transition-all duration-300" style={{width: `${(enemy.hp/enemy.maxHp)*100}%`}}></div>
-                                <div className="absolute inset-0 text-[10px] flex items-center justify-center font-bold text-white drop-shadow">{enemy.name} {formatNumber(enemy.hp)}</div>
-                            </div>
-                            
-                            {/* Damage/Heal Text */}
-                            {floatTexts.map(ft => (
-                                <div key={ft.id} className="absolute text-4xl font-black game-font" 
-                                     style={{top: '50%', left: '50%', color: ft.color, animation: 'float-up-fade 0.8s forwards'}}>
-                                    {ft.txt}
-                                </div>
-                            ))}
+                    {/* --- ENEMY AREA --- */}
+                    <div className="relative z-10 flex-1 flex flex-col items-center justify-center min-h-[160px]">
+                        <div className={`w-32 h-32 transition-transform duration-300 ${enemyAnim}`}>
+                            <SmartImage src={enemy.isBoss?'enemy_boss':'enemy_goblin'} className="drop-shadow-2xl"/>
                         </div>
+                        <div className="w-48 h-5 css-hp-bar mt-2 bg-slate-800">
+                            <div className="h-full bg-red-600 transition-all duration-300" style={{width: `${(enemy.hp/enemy.maxHp)*100}%`}}></div>
+                            <div className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-white drop-shadow-md">{enemy.name} {enemy.hp}</div>
+                        </div>
+                    </div>
 
-                        {/* Combo Counter */}
-                        {combo > 1 && (
-                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 text-5xl font-black text-yellow-400 game-font anim-combo pointer-events-none drop-shadow-xl" style={{ textShadow: '4px 4px 0 #000' }}>
-                                COMBO x{combo}!
-                            </div>
-                        )}
-
-                        {/* Board */}
-                        <div className="w-full max-w-[380px] mx-auto p-2 aspect-[6/7]">
-                            <div className="css-board-frame w-full h-full p-2 grid grid-cols-6 grid-rows-7 gap-1 relative">
-                                {board.map((row, r) => row.map((gem, c) => (
+                    {/* --- BOARD AREA --- */}
+                    <div className="relative z-20 w-full px-4 pb-2 flex justify-center">
+                        <div className="css-board-frame p-2 relative w-full max-w-[360px] aspect-[6/7]">
+                             <div className="grid grid-cols-6 grid-rows-7 gap-1 h-full w-full">
+                                {board.map((row, r) => row.map((cell, c) => (
                                     <div key={`${r}-${c}`}
-                                         onMouseDown={(e) => handleTouchStart(e, r, c)}
-                                         onTouchStart={(e) => handleTouchStart(e, r, c)}
-                                         className={`relative flex items-center justify-center transition-transform active:scale-90 ${crushCells.includes(`${r},${c}`) ? 'anim-crumble' : ''} ${gem?.id ? 'anim-fall' : ''}`}
+                                         onMouseDown={(e)=>handleInputStart(e,r,c)}
+                                         onTouchStart={(e)=>handleInputStart(e,r,c)}
+                                         className={`relative flex items-center justify-center transition-transform active:scale-90 ${cell?.id ? 'anim-fall' : ''} ${crush.includes(`${r},${c}`) ? 'anim-crumble' : ''}`}
                                     >
-                                        {gem && (
+                                        {cell && (
                                             <>
-                                                <SmartImage assetKey={GEM_CONFIG[gem.type].assetKey} className="drop-shadow-md z-10" />
-                                                {/* Special Visuals */}
-                                                {gem.special === 'bomb' && <div className="absolute inset-0 bg-red-500/30 rounded-full anim-special-bomb border-2 border-red-400"></div>}
-                                                {gem.special === 'nova' && <div className="absolute -inset-1 border-4 border-dotted border-white rounded-full anim-special-nova"></div>}
+                                                <SmartImage src={GEM_CONFIG[cell.type].asset} className="drop-shadow-lg z-10 relative"/>
+                                                {cell.special === 'bomb' && <div className="absolute inset-0 bg-red-500/30 rounded-full anim-bomb border-2 border-red-500"/>}
+                                                {cell.special === 'nova' && <div className="absolute -inset-1 border-2 border-dashed border-white rounded-full anim-nova"/>}
                                             </>
                                         )}
                                     </div>
                                 )))}
-                                {/* Particles */}
-                                {particles.map(p => (
-                                    <div key={p.id} className="absolute w-4 h-4 rounded-full pointer-events-none z-20" 
-                                         style={{backgroundColor: p.color, top: p.top, left: p.left, animation: 'particle-pop 0.6s ease-out forwards'}}></div>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Hero */}
-                        <div className="h-32 flex items-end justify-between px-4 pb-4 relative">
-                            <div className="relative w-24">
-                                <div className={`w-24 h-24 ${animState.hero}`}>
-                                    <SmartImage assetKey="hero" className="scale-125 origin-bottom drop-shadow-xl" />
-                                </div>
-                                <div className="w-24 h-3 css-hp-bar absolute -bottom-2 left-0">
-                                    <div className="h-full bg-green-500 transition-all" style={{width: `${(hero.hp/hero.maxHp)*100}%`}}></div>
-                                    <div className="absolute inset-0 text-[8px] flex items-center justify-center font-bold text-white">{hero.hp}/{hero.maxHp}</div>
-                                </div>
-                                {hero.shield > 0 && <div className="absolute -top-2 left-0 bg-purple-600 text-[10px] px-1 rounded border border-white font-bold">🛡️ {hero.shield}</div>}
-                            </div>
-                            
-                            {/* Inventory */}
-                            <div className="flex gap-2 mb-2">
-                                {Object.entries(inventory).map(([key, val]) => (
-                                    <button key={key} onClick={() => {
-                                        if(turn!=='player' || val <= 0) return;
-                                        setInventory(p => ({...p, [key]: p[key]-1}));
-                                        // Simple item logic implementation
-                                        if(key==='potion') { setHero(h=>({...h, hp: Math.min(h.maxHp, h.hp + h.maxHp*0.4)})); spawnVFX(0,0,'heal','HEAL'); }
-                                        if(key==='bomb') { setEnemy(e=>({...e, hp: Math.max(0, e.hp - hero.atk*3)})); spawnVFX(0,0,'dmg',`-${hero.atk*3}`); triggerShake(); }
-                                        if(key==='shuffle') setBoard(createBoard());
-                                    }} className={`w-10 h-10 rounded-full border-2 border-slate-600 bg-slate-800 flex items-center justify-center relative active:scale-90 transition-transform ${val===0 ? 'opacity-50 grayscale':''}`}>
-                                        <span className="text-xl">{key==='potion'?'🧪':(key==='bomb'?'💣':'🔄')}</span>
-                                        <span className="absolute -top-1 -right-1 bg-red-600 text-[9px] w-4 h-4 rounded-full flex items-center justify-center border border-slate-900">{val}</span>
-                                    </button>
-                                ))}
-                            </div>
+                             </div>
+                             {/* Floating Text */}
+                             {floating.map(f => (
+                                 <div key={f.id} className="absolute top-1/2 left-1/2 text-3xl font-black game-font" 
+                                      style={{color: f.color, animation: 'float-up 1s forwards', textShadow: '2px 2px 0 #000'}}>{f.txt}</div>
+                             ))}
+                             {combo > 1 && <div className="absolute top-4 right-4 text-4xl text-yellow-400 font-black game-font animate-bounce">x{combo}</div>}
                         </div>
                     </div>
 
-                    {/* MENUS (Overlays) */}
+                    {/* --- FOOTER: HERO & CONTROLS --- */}
+                    <div className="relative z-10 px-4 pb-6 pt-2 flex items-end justify-between w-full max-w-[400px] mx-auto">
+                        
+                        {/* Hero Left */}
+                        <div className="relative w-24">
+                            <div className={`w-24 h-24 ${heroAnim}`}>
+                                <SmartImage src="hero" className="scale-125 origin-bottom drop-shadow-xl"/>
+                            </div>
+                            <div className="w-24 h-4 css-hp-bar bg-slate-800 absolute -bottom-2">
+                                <div className="h-full bg-green-500 transition-all" style={{width: `${(hero.hp/hero.maxHp)*100}%`}}></div>
+                                <div className="absolute inset-0 text-[9px] flex items-center justify-center font-bold text-white">{hero.hp}/{hero.maxHp}</div>
+                            </div>
+                            {hero.shield > 0 && <div className="absolute -top-4 left-0 text-xs bg-purple-600 px-2 py-0.5 rounded-full border border-white font-bold">🛡️ {hero.shield}</div>}
+                        </div>
+
+                        {/* Inventory Right */}
+                        <div className="flex gap-3 mb-1">
+                            {['potion', 'bomb', 'shuffle'].map(item => (
+                                <button key={item} onClick={() => {
+                                    if(inventory[item] > 0 && turn === 'player' && !isBusy) {
+                                        setInventory(i => ({...i, [item]: i[item]-1}));
+                                        if(item === 'potion') { setHero(h=>({...h, hp: Math.min(h.maxHp, h.hp+50)})); spawnText("+HP", "#0f0"); }
+                                        if(item === 'bomb') { setEnemy(e=>({...e, hp: Math.max(0, e.hp-hero.atk*3)})); spawnText("BOOM", "#f00"); triggerShake(); }
+                                        if(item === 'shuffle') setBoard(generateBoard(true));
+                                    }
+                                }} className={`w-12 h-12 rounded-full border-2 border-slate-600 bg-slate-800 flex items-center justify-center relative transition-transform active:scale-90 ${inventory[item]===0?'opacity-50 grayscale':''}`}>
+                                    <span className="text-2xl">{item==='potion'?'🧪':(item==='bomb'?'💣':'🔄')}</span>
+                                    <span className="absolute -top-1 -right-1 bg-red-600 text-[10px] w-5 h-5 flex items-center justify-center rounded-full border border-slate-900 font-bold">{inventory[item]}</span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* --- MENUS --- */}
                     
                     {gameState === 'START' && (
-                        <div className="absolute inset-0 z-50 bg-slate-900/95 flex flex-col items-center justify-center gap-6 animate-in fade-in zoom-in duration-300">
-                            <h1 className="text-5xl font-black text-yellow-500 game-font text-center leading-tight drop-shadow-xl">PUZZLE<br/><span className="text-white">HEROES</span><br/><span className="text-2xl text-blue-400">RPG</span></h1>
-                            <button onClick={startLevel} className="w-64 py-4 bg-green-600 rounded-xl border-b-4 border-green-800 text-2xl font-black text-white active:border-b-0 active:translate-y-1 shadow-lg transition-all hover:brightness-110">PLAY START</button>
-                            <div className="text-white/50 text-sm font-mono mt-4">v2.0 Enhanced Edition</div>
+                        <div className="absolute inset-0 z-50 bg-slate-900/95 flex flex-col items-center justify-center gap-6 animate-in fade-in zoom-in">
+                            <h1 className="text-5xl text-yellow-500 font-black game-font text-center">PUZZLE<br/>HEROES</h1>
+                            <button onClick={startBattle} className="w-64 py-4 bg-green-600 rounded-xl border-b-4 border-green-800 text-2xl font-bold active:border-b-0 active:translate-y-1">START GAME</button>
+                            <div className="p-4 bg-slate-800 rounded-xl border border-white/10 text-center">
+                                <div className="text-sm text-slate-400 mb-2">Logged in as:</div>
+                                <div className="text-lg font-bold text-white mb-4">{activeName}</div>
+                                {user ? <button onClick={window.logoutGoogle} className="text-red-400 text-sm font-bold">LOGOUT</button> 
+                                      : <button onClick={window.loginGoogle} className="bg-white text-slate-900 px-4 py-2 rounded font-bold text-sm">LOGIN GOOGLE</button>}
+                            </div>
                         </div>
                     )}
 
                     {gameState === 'REWARD' && (
-                        <div className="absolute inset-0 z-50 bg-black/90 flex flex-col items-center justify-center gap-4 text-center p-6">
-                            <div className="text-6xl mb-2">🏆</div>
-                            <h2 className="text-4xl font-black text-green-400 game-font">VICTORY!</h2>
-                            <p className="text-white text-lg">Coins Earned: <span className="text-yellow-400 font-bold">+{Math.floor(20 * Math.pow(1.1, level))}</span></p>
-                            <button onClick={() => { setLevel(l => l+1); startLevel(); }} className="mt-4 px-8 py-3 bg-yellow-500 text-yellow-900 font-black text-xl rounded-lg border-b-4 border-yellow-700 active:scale-95">NEXT STAGE ▶</button>
-                            <button onClick={() => setGameState('SHOP')} className="text-white/70 underline text-sm">Go to Shop</button>
+                        <div className="absolute inset-0 z-50 bg-black/90 flex flex-col items-center justify-center p-6 text-center">
+                            <div className="text-6xl mb-4">🏆</div>
+                            <h2 className="text-4xl text-green-400 font-black game-font mb-2">VICTORY!</h2>
+                            <div className="bg-slate-800 p-4 rounded-xl border border-yellow-500 w-full max-w-xs mb-6">
+                                <div className="text-yellow-500 font-bold text-sm uppercase">Reward</div>
+                                <div className="text-3xl font-black text-white">+{Math.floor(20 * Math.pow(1.1, level))} Coins</div>
+                            </div>
+                            <button onClick={()=>{setLevel(l=>l+1); startBattle();}} className="w-full max-w-xs py-4 bg-yellow-500 text-yellow-900 font-black text-xl rounded-xl border-b-4 border-yellow-700 active:border-b-0 active:translate-y-1">NEXT LEVEL</button>
                         </div>
                     )}
 
                     {gameState === 'GAMEOVER' && (
-                        <div className="absolute inset-0 z-50 bg-red-900/90 flex flex-col items-center justify-center gap-4 text-center p-6">
-                            <h2 className="text-5xl font-black text-white game-font">DEFEAT</h2>
-                            <p className="text-white/80">The monsters got you...</p>
-                            <button onClick={() => { setLevel(1); startLevel(); }} className="mt-4 px-8 py-3 bg-white text-red-900 font-black text-xl rounded-lg border-b-4 border-slate-300 active:scale-95">TRY AGAIN</button>
+                        <div className="absolute inset-0 z-50 bg-red-900/95 flex flex-col items-center justify-center p-6 text-center">
+                            <h2 className="text-5xl text-white font-black game-font mb-4">DEFEAT</h2>
+                            <button onClick={startBattle} className="px-8 py-3 bg-white text-red-900 font-black text-xl rounded-lg border-b-4 border-slate-300">TRY AGAIN</button>
                         </div>
                     )}
 
                     {gameState === 'SHOP' && (
-                        <div className="absolute inset-0 z-50 bg-slate-800 flex flex-col">
-                            <div className="p-4 bg-slate-900 flex justify-between items-center shadow-lg">
-                                <h2 className="text-2xl font-black text-yellow-400">SHOP</h2>
-                                <button onClick={() => setGameState('BATTLE')} className="bg-slate-700 px-3 py-1 rounded text-white font-bold">CLOSE</button>
+                        <div className="absolute inset-0 z-50 bg-slate-900 flex flex-col">
+                            <div className="p-4 bg-slate-800 shadow-md flex justify-between items-center">
+                                <h2 className="text-2xl text-yellow-400 font-black">SHOP</h2>
+                                <button onClick={()=>setGameState(level===1 && enemy.hp===100 ? 'START' : 'BATTLE')} className="bg-slate-600 px-3 py-1 rounded font-bold text-sm">CLOSE</button>
                             </div>
-                            <div className="p-4 space-y-4 overflow-y-auto">
-                                <div className="bg-slate-700 p-4 rounded-xl flex justify-between items-center border border-white/10">
-                                    <div><div className="font-bold text-white text-lg">⚔️ Upgrade ATK</div><div className="text-xs text-slate-400">Current: {stats.atk}</div></div>
-                                    <button onClick={() => { if(totalCoins >= 100) { setTotalCoins(c=>c-100); setStats(s=>({...s, atk:s.atk+2})); }}} className="bg-blue-600 px-4 py-2 rounded-lg font-bold text-white border-b-4 border-blue-800 active:border-b-0">100💰</button>
+                            <div className="flex-1 overflow-y-auto p-4 space-y-6">
+                                {/* Buy Coins */}
+                                <div className="space-y-2">
+                                    <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest">Buy Coins</h3>
+                                    {[1000, 5000, 15000].map((amt, i) => (
+                                        <div key={i} onClick={()=>handleInvoice(amt, amt)} className="bg-slate-800 p-3 rounded-xl border border-slate-700 flex justify-between items-center active:scale-95 transition-transform">
+                                            <div className="flex items-center gap-3"><span className="text-2xl">💎</span> <span className="font-bold">{formatNum(amt)} Coins</span></div>
+                                            <div className="bg-blue-600 text-white px-3 py-1 rounded font-bold text-sm">{i===0?'$1':(i===1?'$4':'$10')}</div>
+                                        </div>
+                                    ))}
                                 </div>
-                                <div className="bg-slate-700 p-4 rounded-xl flex justify-between items-center border border-white/10">
-                                    <div><div className="font-bold text-white text-lg">❤️ Upgrade HP</div><div className="text-xs text-slate-400">Current: {stats.hp}</div></div>
-                                    <button onClick={() => { if(totalCoins >= 100) { setTotalCoins(c=>c-100); setStats(s=>({...s, hp:s.hp+10})); }}} className="bg-blue-600 px-4 py-2 rounded-lg font-bold text-white border-b-4 border-blue-800 active:border-b-0">100💰</button>
+                                {/* Upgrades */}
+                                <div className="space-y-2">
+                                    <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest">Permanent Upgrades</h3>
+                                    <div className="bg-slate-800 p-4 rounded-xl border border-slate-700 flex justify-between items-center">
+                                        <div><div className="font-bold text-lg">⚔️ Attack Power</div><div className="text-xs text-green-400">Level {upgrades.atk}</div></div>
+                                        <button onClick={()=>buyUpgrade('atk')} className={`px-4 py-2 rounded-lg font-bold border-b-4 ${coins>=getPrice('atk') ? 'bg-green-600 border-green-800 active:border-b-0' : 'bg-slate-600 border-slate-700 opacity-50'}`}>💰 {formatNum(getPrice('atk'))}</button>
+                                    </div>
+                                    <div className="bg-slate-800 p-4 rounded-xl border border-slate-700 flex justify-between items-center">
+                                        <div><div className="font-bold text-lg">❤️ Max Health</div><div className="text-xs text-green-400">Level {upgrades.hp}</div></div>
+                                        <button onClick={()=>buyUpgrade('hp')} className={`px-4 py-2 rounded-lg font-bold border-b-4 ${coins>=getPrice('hp') ? 'bg-green-600 border-green-800 active:border-b-0' : 'bg-slate-600 border-slate-700 opacity-50'}`}>💰 {formatNum(getPrice('hp'))}</button>
+                                    </div>
+                                </div>
+                                {/* Items */}
+                                <div className="space-y-2">
+                                    <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest">Battle Items</h3>
+                                    {['potion', 'bomb', 'shuffle'].map(item => (
+                                        <div key={item} className="bg-slate-800 p-3 rounded-xl flex justify-between items-center border border-slate-700">
+                                            <div className="capitalize font-bold text-lg">{item}</div>
+                                            <button onClick={()=>{if(coins>=50){setCoins(c=>c-50);setInventory(i=>({...i, [item]:i[item]+1}));tg.HapticFeedback.notificationOccurred('success');}}} className={`px-4 py-2 rounded-lg font-bold border-b-4 ${coins>=50?'bg-purple-600 border-purple-800 active:border-b-0':'bg-slate-600 border-slate-700 opacity-50'}`}>💰 50</button>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
                         </div>
