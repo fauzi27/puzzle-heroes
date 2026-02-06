@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Puzzle Heroes RPG + Fix Save & Input</title>
+    <title>Puzzle Heroes RPG - Fixed UI & Logic</title>
     
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
@@ -26,7 +26,7 @@
         }
         .game-font { text-shadow: 2px 2px 0px #000; letter-spacing: 1px; }
         
-        /* --- ANIMASI SAMA SEPERTI SEBELUMNYA --- */
+        /* ANIMASI */
         @keyframes drop-in { 0% { transform: translateY(-100%); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
         .anim-fall { animation: drop-in 0.4s cubic-bezier(0.25, 1, 0.5, 1) backwards; }
         @keyframes pop-in { 0% { transform: scale(0.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
@@ -52,9 +52,9 @@
         .anim-bomb { animation: bomb-flash 0.5s ease-out; }
         
         .css-board-frame { background: rgba(15, 23, 42, 0.8); border: 8px solid #334155; border-radius: 12px; box-shadow: 0 0 0 2px #1e293b, inset 0 0 20px rgba(0,0,0,0.8); }
-        .css-hp-bar { background: #1e293b; border: 3px solid #475569; border-radius: 8px; overflow: hidden; }
-        .btn-game { border-bottom-width: 4px; transition: all 0.1s; }
-        .btn-game:active { border-bottom-width: 0px; transform: translateY(4px); }
+        .css-hp-bar { background: #1e293b; border: 2px solid #475569; border-radius: 6px; overflow: hidden; position: relative; }
+        .btn-game { border-bottom-width: 3px; transition: all 0.1s; }
+        .btn-game:active { border-bottom-width: 0px; transform: translateY(3px); }
         .star-icon { display: inline-block; width: 16px; height: 16px; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23eab308'%3E%3Cpath d='M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z'/%3E%3C/svg%3E") center/contain no-repeat; }
         img { -webkit-user-drag: none; user-select: none; pointer-events: none; }
     </style>
@@ -62,7 +62,6 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-        // FIX 1: Gunakan signInAnonymously sebagai pengganti signInWithPopup untuk Telegram
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
         const firebaseConfig = {
@@ -78,33 +77,20 @@
         const db = getFirestore(app);
         const auth = getAuth(app);
 
-        // Fungsi Login Senyap (Anonymous) agar bisa akses Firestore tanpa Popup
         window.initFirebaseAuth = async () => {
-            try {
-                await signInAnonymously(auth);
-                // console.log("Firebase Auth Anonim Sukses");
-            } catch (e) {
-                console.error("Auth Error:", e);
-            }
+            try { await signInAnonymously(auth); } catch (e) { console.error("Auth Error:", e); }
         };
-
         window.authListener = (cb) => onAuthStateChanged(auth, cb);
         
-        // Load Data: Prioritaskan ID Telegram jika ada
         window.loadCloudData = async (playerId) => { 
-            try { 
-                const d = await getDoc(doc(db, "players", String(playerId))); // Pastikan string
-                return d.exists() ? d.data() : null; 
-            } catch (e) { console.error("Load fail:", e); return null; } 
+            try { const d = await getDoc(doc(db, "players", String(playerId))); return d.exists() ? d.data() : null; } 
+            catch (e) { return null; } 
         };
-        
         window.saveCloudData = async (playerId, data) => { 
-            try { 
-                await setDoc(doc(db, "players", String(playerId)), data, { merge: true }); 
-            } catch (e) { console.error("Save fail:", e); } 
+            try { await setDoc(doc(db, "players", String(playerId)), data, { merge: true }); } 
+            catch (e) { console.error(e); } 
         };
         
-        // Jalankan Auth segera saat script load
         window.initFirebaseAuth();
     </script>
 </head>
@@ -147,10 +133,8 @@
 
         function GameApp() {
             const tg = window.Telegram.WebApp;
-            const [authUser, setAuthUser] = useState(null); // Firebase User
+            const [authUser, setAuthUser] = useState(null);
             
-            // --- FIX 1: Identitas Pemain Hybrid ---
-            // Jika di Telegram, gunakan ID Telegram (stabil). Jika di browser, gunakan UID Firebase.
             const telegramUser = tg.initDataUnsafe?.user;
             const activePlayerId = telegramUser ? String(telegramUser.id) : (authUser ? authUser.uid : 'guest');
             const activeUserName = telegramUser ? telegramUser.first_name : 'Player';
@@ -161,11 +145,11 @@
             const [inventory, setInventory] = useState({ potion: 1, bomb: 0, shuffle: 1 });
             const [upgradeLevels, setUpgradeLevels] = useState({ hp: 1, atk: 1 });
             const [isCloudLoaded, setIsCloudLoaded] = useState(false);
+            const [rewardClaimed, setRewardClaimed] = useState(false); // Fix: Mencegah double claim koin
 
             const [showIAP, setShowIAP] = useState(false);
             const [fallingCells, setFallingCells] = useState([]); 
 
-            // Logic Shop & Stats
             const getShopCost = (type) => Math.floor((type==='atk'?100:80) * Math.pow(1.5, upgradeLevels[type]-1));
             const getShopValue = (type) => type==='atk' ? (2 + Math.floor((upgradeLevels[type]-1)*0.5)) : (10 + Math.floor((upgradeLevels[type]-1)*2));
             const calculateHeroStats = (lvl, upg) => {
@@ -179,19 +163,15 @@
             const [hero, setHero] = useState(calculateHeroStats(level, upgradeLevels));
             const [enemy, setEnemy] = useState({ name: 'Loading', hp: 100, maxHp: 100, atk: 10 });
             
-            // --- FIX 1 (Lanjutan): Load Data Efektif ---
             useEffect(() => {
                 tg.ready(); tg.expand();
                 tg.BackButton.onClick(() => { setGameState('BATTLE'); tg.BackButton.hide(); });
                 
-                // Listener Auth Firebase (Anonymous)
                 if(window.authListener) {
                     window.authListener(async (user) => {
                         setAuthUser(user);
-                        // Hanya load jika kita sudah punya User (Anonim/Real)
                         if(user || telegramUser) {
                             if(window.loadCloudData) {
-                                // Gunakan activePlayerId yang sudah memperhitungkan ID Telegram
                                 const data = await window.loadCloudData(activePlayerId);
                                 if (data) {
                                     if(data.level) setLevel(data.level);
@@ -206,7 +186,6 @@
                 }
             }, []);
 
-            // Auto Save
             useEffect(() => {
                 if (!isCloudLoaded) return;
                 const timer = setTimeout(() => {
@@ -221,7 +200,7 @@
                 return () => clearTimeout(timer);
             }, [level, totalCoins, inventory, upgradeLevels, isCloudLoaded]);
 
-            // Gameplay States
+            // Gameplay State
             const [board, setBoard] = useState([]);
             const [turn, setTurn] = useState('player'); 
             const [turnBanner, setTurnBanner] = useState(''); 
@@ -237,7 +216,6 @@
             const [dragState, setDragState] = useState(null); 
             const [screenFlash, setScreenFlash] = useState('');
 
-            // Ref untuk akses state di event listener window
             const dragStateRef = useRef(dragState);
             const boardRef = useRef(board);
             const isProcessingRef = useRef(isProcessing);
@@ -248,10 +226,10 @@
             useEffect(() => { isProcessingRef.current = isProcessing; }, [isProcessing]);
             useEffect(() => { turnRef.current = turn; }, [turn]);
 
-            // Update Enemy Stats
+            // Update Stats & Level Start
             useEffect(() => {
                 if (isCloudLoaded) {
-                    setHero(prev => { const s = calculateHeroStats(level, upgradeLevels); return { ...s, hp: s.maxHp }; });
+                    setHero(prev => { const s = calculateHeroStats(level, upgradeLevels); return { ...s, hp: s.maxHp, shield: 0 }; });
                     const isBoss = level % 5 === 0;
                     const idx = Math.min(Math.floor((level - 1) / 5), MONSTER_NAMES.length - 1);
                     setEnemy({
@@ -261,8 +239,21 @@
                         atk: Math.floor(10 * Math.pow(1.08, level) * (isBoss ? 1.5 : 1)),
                         isBoss
                     });
+                    setRewardClaimed(false); // Reset claim status setiap level baru
                 }
             }, [isCloudLoaded, level, upgradeLevels]);
+
+            // --- WIN LOGIC FIX (Poin 2) ---
+            useEffect(() => {
+                if(enemy.hp <= 0 && gameState === 'BATTLE' && !rewardClaimed) { 
+                    setRewardClaimed(true); // Kunci agar tidak double
+                    const reward = Math.floor(15 * Math.pow(1.085, level-1)); 
+                    setTotalCoins(p => p + reward); 
+                    spawnText(`VICTORY! +${reward} 💰`, '#fbbf24');
+                    setTimeout(() => setGameState('REWARD'), 1500); 
+                }
+                if(hero.hp <= 0 && gameState === 'BATTLE') setGameState('GAMEOVER');
+            }, [enemy.hp, hero.hp]);
 
             function createValidBoard() {
                 let newBoard, isValid = false;
@@ -330,27 +321,21 @@
                         await new Promise(r => setTimeout(r, 400)); 
                         setCrushingCells([]);
                         
-                        // --- FIX 2: Logic Gravitasi yang Lebih Aman (Cegah Null) ---
                         let newFallingCoords = [];
                         for(let c=0; c<BOARD_COLS; c++) {
                              let emptyCount = 0;
                              for(let r=BOARD_ROWS-1; r>=0; r--) {
-                                 if(activeBoard[r][c] === null) {
-                                     emptyCount++;
-                                 } else if(emptyCount > 0) {
+                                 if(activeBoard[r][c] === null) emptyCount++;
+                                 else if(emptyCount > 0) {
                                      activeBoard[r+emptyCount][c] = activeBoard[r][c];
                                      activeBoard[r][c] = null;
                                  }
                              }
-                             // Isi dengan aman
                              for(let i=0; i<emptyCount; i++) {
                                  activeBoard[i][c] = GEM_TYPES[Math.floor(Math.random() * GEM_TYPES.length)];
                                  newFallingCoords.push(`${i},${c}`);
                              }
-                             // Failsafe: Cek jika masih ada null (jarang terjadi tapi fatal)
-                             for(let r=0; r<BOARD_ROWS; r++) {
-                                 if(activeBoard[r][c] === null) activeBoard[r][c] = GEM_TYPES[0];
-                             }
+                             for(let r=0; r<BOARD_ROWS; r++) if(activeBoard[r][c] === null) activeBoard[r][c] = GEM_TYPES[0];
                         }
                         
                         setFallingCells(newFallingCoords);
@@ -363,14 +348,12 @@
                     }
                 }
                 
-                // Pastikan status kembali false
                 setIsProcessing(false);
                 setTurn('enemy'); 
                 setTurnBanner("GILIRAN MUSUH");
                 setTimeout(() => setTurnBanner(''), 1500);
             };
 
-            // AI Musuh
             useEffect(() => {
                 if (turn === 'enemy' && enemy.hp > 0 && gameState === 'BATTLE' && !isProcessing) {
                     setIsProcessing(true);
@@ -386,7 +369,7 @@
                         const r = Math.floor(Math.random()*(BOARD_ROWS-1));
                         const c = Math.floor(Math.random()*(BOARD_COLS-1));
                         const nb = board.map(r=>[...r]); 
-                        if(nb[r] && nb[r+1]) { // Safety check
+                        if(nb[r] && nb[r+1]) { 
                              [nb[r][c], nb[r][c+1]] = [nb[r][c+1], nb[r][c]]; 
                              setBoard(nb);
                         }
@@ -396,8 +379,6 @@
                 }
             }, [turn, gameState, isProcessing]);
 
-            // --- FIX 2: Event Listener Global untuk Drag ---
-            // Mengatasi masalah gem "nyangkut" saat mouse dilepas di luar area game
             useEffect(() => {
                 const handleGlobalUp = (e) => {
                     const currentDrag = dragStateRef.current;
@@ -415,12 +396,7 @@
                          if (tr>=0 && tr<BOARD_ROWS && tc>=0 && tc<BOARD_COLS) {
                              const tb = boardRef.current.map(r=>[...r]); 
                              [tb[currentDrag.r][currentDrag.c], tb[tr][tc]] = [tb[tr][tc], tb[currentDrag.r][currentDrag.c]];
-                             
-                             if (checkMatches(tb).length>0) { 
-                                 setIsProcessing(true); 
-                                 setBoard(tb); 
-                                 setTimeout(() => resolveBoard(tb), 200); 
-                             }
+                             if (checkMatches(tb).length>0) { setIsProcessing(true); setBoard(tb); setTimeout(() => resolveBoard(tb), 200); }
                          }
                     }
                     setDragState(null);
@@ -432,15 +408,11 @@
                     window.removeEventListener('mouseup', handleGlobalUp);
                     window.removeEventListener('touchend', handleGlobalUp);
                 };
-            }, []); // Empty dependency array karena pakai ref
+            }, []);
 
             const handleDragStart = (e, r, c) => { 
                 if(!isProcessingRef.current && turnRef.current==='player') {
-                    setDragState({
-                        r, c, 
-                        x: e.touches ? e.touches[0].clientX : e.clientX, 
-                        y: e.touches ? e.touches[0].clientY : e.clientY
-                    });
+                    setDragState({ r, c, x: e.touches ? e.touches[0].clientX : e.clientX, y: e.touches ? e.touches[0].clientY : e.clientY });
                 }
             };
 
@@ -465,14 +437,8 @@
                 } else tg.HapticFeedback.notificationOccurred('error');
             };
 
-            // --- FIX 3: Hapus Celah Keamanan Browser ---
             const handleStarsPurchase = (coins, stars) => {
-                if (!tg.initDataUnsafe?.user) {
-                    // SEBELUMNYA: Memberikan koin gratis.
-                    // SEKARANG: Blokir akses atau berikan alert.
-                    alert("[MODE BROWSER] Fitur pembayaran dinonaktifkan untuk keamanan.");
-                    return; 
-                }
+                if (!tg.initDataUnsafe?.user) { alert("[MODE BROWSER] Fitur pembayaran dinonaktifkan."); return; }
                 const invoiceLink = "https://t.me/$D8iuOsDkIFQgBAAAUoNG2nbqTHI"; 
                 tg.openInvoice(invoiceLink, (status) => {
                     if (status === 'paid') {
@@ -487,15 +453,6 @@
                     } else if (status === 'failed') tg.showAlert("Pembayaran Gagal."); 
                 });
             };
-
-            useEffect(() => {
-                if(enemy.hp <= 0 && gameState === 'BATTLE') { 
-                    const reward = Math.floor(15 * Math.pow(1.085, level-1)); 
-                    setTotalCoins(p => p + reward); 
-                    setTimeout(() => setGameState('REWARD'), 1000); 
-                }
-                if(hero.hp <= 0 && gameState === 'BATTLE') setGameState('GAMEOVER');
-            }, [enemy.hp, hero.hp]);
 
             return (
                 <div className="flex flex-col h-screen w-full select-none relative overflow-hidden">
@@ -516,17 +473,19 @@
                     {turnBanner && <div className="absolute top-40 w-full text-center z-50 text-4xl font-black text-white animate-pulse game-font drop-shadow-lg">{turnBanner}</div>}
 
                     <div className="flex flex-col justify-between h-full py-4 relative z-10">
+                        {/* ENEMY */}
                         <div className="relative flex flex-col items-center mt-8"> 
                             <div className={`relative w-32 h-32 ${enemyAnim} anim-sway-enemy z-30`}>
                                  <SmartImage assetKey={enemy.isBoss ? 'enemy_boss' : 'enemy_goblin'} className="drop-shadow-2xl" />
                                  {punchEffect === 'enemy' && <div className="absolute inset-0 flex items-center justify-center text-6xl anim-punch">💥</div>}
                             </div>
-                            <div className="w-48 h-6 css-hp-bar -mt-2 z-20 relative">
+                            <div className="w-48 h-5 css-hp-bar -mt-2 z-20 relative">
                                 <div className="absolute h-full bg-red-600 transition-all duration-300" style={{width: `${(enemy.hp/enemy.maxHp)*100}%`}}></div>
-                                <div className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-white">{enemy.name} HP: {formatNumber(enemy.hp)}</div>
+                                <div className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-white drop-shadow-md">{enemy.name} HP: {formatNumber(enemy.hp)}</div>
                             </div>
                         </div>
 
+                        {/* BOARD */}
                         <div className="flex-1 flex items-center justify-center relative">
                             {particles.map(p => (<div key={p.id} className="absolute w-8 h-8 anim-particle z-50" style={{top:p.top, left:p.left}}><SmartImage assetKey={GEM_CONFIG[p.type].assetKey} /></div>))}
                             <div className="relative w-full max-w-[360px] aspect-[6/7] p-2">
@@ -546,19 +505,35 @@
                             </div>
                         </div>
 
+                        {/* HERO & STATS (Poin 3 & 4) */}
                         <div className="relative z-20 w-full flex flex-col items-center pb-8">
-                            <div className="w-48 h-6 css-hp-bar mb-[-10px] z-10 relative">
+                            {/* HP & Shield Bar */}
+                            <div className="w-48 h-6 css-hp-bar mb-[-10px] z-10 relative bg-slate-800">
+                                {/* HP Hijau */}
                                 <div className="absolute h-full bg-green-500 transition-all duration-300" style={{width: `${(hero.hp/hero.maxHp)*100}%`}}></div>
-                                <div className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-white">HERO HP: {formatNumber(hero.hp)}</div>
+                                {/* Shield Ungu Overlay */}
+                                <div className="absolute h-full bg-purple-500/60 border-b-2 border-purple-300 transition-all duration-300" style={{width: `${Math.min(100, (hero.shield/hero.maxHp)*100)}%`}}></div>
+                                <div className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-white drop-shadow-md">
+                                    HP: {formatNumber(hero.hp)} {hero.shield > 0 ? `(+${hero.shield})` : ''}
+                                </div>
                             </div>
-                            <div className="relative w-32 h-32">
+                            
+                            <div className="relative w-32 h-32 flex items-center justify-center">
+                                {/* Hero Sprite */}
                                 <div className={`w-full h-full ${heroAnim} anim-sway-hero relative`}><SmartImage assetKey="hero" /></div>
                                 {punchEffect === 'hero' && <div className="absolute inset-0 flex items-center justify-center text-6xl anim-punch">💥</div>}
-                                <div className="absolute -right-8 top-0 flex flex-col gap-2 anim-float">
+                                
+                                {/* Attack Badge (Poin 4) */}
+                                <div className="absolute bottom-2 -left-2 bg-slate-800 border border-yellow-500 text-yellow-400 px-2 py-0.5 rounded-full text-xs font-bold flex items-center gap-1 shadow-lg z-20">
+                                    ⚔️ {formatNumber(hero.atk)}
+                                </div>
+
+                                {/* Items Container (Poin 3: Dirapikan) */}
+                                <div className="absolute -right-6 top-4 flex flex-col gap-1.5 anim-float z-20">
                                     {['potion','bomb','shuffle'].map(i => (
-                                        <button key={i} onClick={() => useItem(i)} className={`w-10 h-10 rounded-full border-2 flex items-center justify-center bg-slate-700 relative btn-game ${inventory[i] > 0 ? 'border-white' : 'opacity-50 grayscale'}`}>
-                                            <span className="text-xl">{{potion:'🧪', bomb:'💣', shuffle:'🔄'}[i]}</span>
-                                            <span className="absolute -top-1 -right-1 bg-red-500 text-[9px] w-4 h-4 rounded-full flex items-center justify-center border border-black">{inventory[i]}</span>
+                                        <button key={i} onClick={() => useItem(i)} className={`w-9 h-9 rounded-lg border-2 flex items-center justify-center bg-slate-700 shadow-md btn-game ${inventory[i] > 0 ? 'border-white' : 'opacity-50 grayscale border-slate-600'}`}>
+                                            <span className="text-lg">{{potion:'🧪', bomb:'💣', shuffle:'🔄'}[i]}</span>
+                                            {inventory[i] > 0 && <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-[8px] min-w-[14px] h-[14px] rounded-full flex items-center justify-center border border-slate-900 font-bold text-white">{inventory[i]}</span>}
                                         </button>
                                     ))}
                                 </div>
@@ -598,7 +573,8 @@
                         <div className="absolute inset-0 z-[60] bg-slate-900 flex flex-col p-4 anim-pop-in">
                             <div className="flex justify-between items-center mb-6">
                                 <h2 className="text-3xl text-yellow-400 font-black">SHOP</h2>
-                                <button onClick={() => setGameState(level===1 && enemy.hp===100 ? 'START' : 'REWARD')} className="bg-red-500 px-3 py-1 rounded text-white font-bold">CLOSE</button>
+                                {/* FIX Poin 1: Logika Kembali ke Battle jika musuh masih hidup */}
+                                <button onClick={() => setGameState(enemy.hp > 0 ? 'BATTLE' : 'REWARD')} className="bg-red-500 px-3 py-1 rounded text-white font-bold">CLOSE</button>
                             </div>
                             <div className="bg-slate-800 p-4 rounded-xl mb-4 border border-yellow-500 flex justify-between">
                                 <span className="text-gray-300">COINS:</span><span className="text-yellow-400 font-black text-xl">💰 {formatNumber(totalCoins)}</span>
